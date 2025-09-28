@@ -103,6 +103,12 @@
  background-color: var(--accent);
  transition: width 500ms ease-in-out;
  }
+ #renderProgressBar {
+    height: 100%;
+    width: 0;
+    background-color: var(--accent);
+    transition: width 250ms linear;
+}
 
  /* --- Settings Panel --- */
  .settings-panel h2 {
@@ -500,3 +506,112 @@
      width: 1em;
      height: 1em;
  }
+
+/* --- Modal Styles --- */
+.hidden {
+    display: none !important;
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 100;
+    backdrop-filter: blur(4px);
+}
+
+.modal-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: clamp(80vw, 600px, 90vw);
+    max-height: 90vh;
+    background-color: var(--bg);
+    border: 1px solid var(--accent-secondary);
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--bg-secondary);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--accent);
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 2.5rem;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.modal-close-btn:hover {
+    color: var(--text);
+}
+
+.modal-content {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+#formatSelector {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    background: var(--bg-secondary);
+    color: var(--text);
+    border: 1px solid var(--accent-secondary);
+}
+#formatSelector:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+.format-note {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+}
+
+.modal-actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+#saveProgressView {
+    text-align: center;
+}
+
+#progressStatusText {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+#progressTimeText {
+    margin-top: 0.5rem;
+    color: var(--muted);
+}

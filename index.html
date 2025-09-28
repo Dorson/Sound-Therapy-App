@@ -252,7 +252,7 @@
  The effectiveness of these sounds can vary by individual. Experiment with different session lengths and intensity levels to find what works best for you.
  </p>
  <p class="github-link">
-    Contribute on <a href="https://github.com/Dorson/Sound-Therapy-App" target="_blank" rel="noopener noreferrer">GitHub</a>.
+    Contribute on <a href="https://github.com/Dorson/Sound-Therapy-App" target=" _blank" rel="noopener noreferrer">GitHub</a>.
  </p>
  </div>
  </section>
@@ -260,16 +260,54 @@
  </div>
  
  <footer class="footer-controls">
- <div class="footer-controls-inner">
- <button id="playPauseBtn" class="control-button">
- <div id="playIcon" class="play-icon"></div>
- <span id="playPauseLabel">Play</span>
- </button>
- <button id="nextStageBtn" class="control-button">
- Next Stage
- </button>
- </div>
+  <div class="footer-controls-inner">
+  <button id="playPauseBtn" class="control-button">
+  <div id="playIcon" class="play-icon"></div>
+  <span id="playPauseLabel">Play</span>
+  </button>
+  <button id="nextStageBtn" class="control-button">
+  Next Stage
+  </button>
+  </div>
  </footer>
+
+ <!-- Save Audio Modal -->
+ <div id="saveModalBackdrop" class="modal-backdrop hidden"></div>
+ <div id="saveModal" class="modal-container hidden" role="dialog" aria-modal="true" aria-labelledby="saveModalTitle">
+     <div class="modal-header">
+         <h2 id="saveModalTitle">Export Soundscape</h2>
+         <button id="saveModalCloseBtn" class="modal-close-btn" aria-label="Close dialog">&times;</button>
+     </div>
+     <div class="modal-content">
+         <!-- Settings View -->
+         <div id="saveSettingsView">
+             <div class="settings-group">
+                 <label for="formatSelector">Audio Format</label>
+                 <select id="formatSelector">
+                     <option value="audio/wav">WAV (Uncompressed, Highest Quality)</option>
+                     <option value="audio/ogg" data-bitrate="320000">OGG (Compressed, 320 kbps)</option>
+                     <option value="audio/webm" data-bitrate="320000">WebM (Compressed, 320 kbps)</option>
+                 </select>
+                 <p id="formatInfo" class="format-note">Uncompressed, lossless format. Largest file size.</p>
+             </div>
+             <div class="modal-actions">
+                 <button id="startRenderBtn" class="settings-button save-audio-button">Start Export</button>
+                 <button id="cancelModalBtn" class="settings-button install-app-button">Cancel</button>
+             </div>
+         </div>
+         <!-- Progress View -->
+         <div id="saveProgressView" class="hidden">
+             <p id="progressStatusText">Preparing...</p>
+             <div class="progress-bar-container">
+                 <div id="renderProgressBar" style="width: 0%;"></div>
+             </div>
+             <p id="progressTimeText">0s / 0s</p>
+             <div class="modal-actions">
+                 <button id="cancelRenderBtn" class="settings-button install-app-button">Cancel</button>
+             </div>
+         </div>
+     </div>
+ </div>
 
 <script type="module" src="index.js"></script>
 </body>

@@ -1,6 +1,46 @@
+// This string contains the code for our custom AudioWorkletProcessor.
+// It's defined here to avoid needing a separate file, which simplifies local usage (file://).
+const lfoProcessorString = `
+class PhaseControlledLfoProcessor extends AudioWorkletProcessor {
+  constructor(options) {
+    super();
+    this.phase = options.processorOptions.startPhase || 0;
+  }
+  
+  static get parameterDescriptors() {
+    return [
+        { name: 'frequency', defaultValue: 1, automationRate: 'a-rate' },
+        { name: 'amplitude', defaultValue: 1, automationRate: 'a-rate' }
+    ];
+  }
+
+  process(inputs, outputs, parameters) {
+    const output = outputs[0];
+    const frequency = parameters.frequency;
+    const amplitude = parameters.amplitude;
+
+    for (let channel = 0; channel < output.length; channel++) {
+      const outputChannel = output[channel];
+      for (let i = 0; i < outputChannel.length; i++) {
+        const freq = frequency.length > 1 ? frequency[i] : frequency[0];
+        const amp = amplitude.length > 1 ? amplitude[i] : amplitude[0];
+        
+        outputChannel[i] = Math.sin(this.phase) * amp;
+        this.phase += 2 * Math.PI * freq / sampleRate;
+        if (this.phase > 2 * Math.PI) {
+          this.phase -= 2 * Math.PI;
+        }
+      }
+    }
+    return true; // Keep processor alive
+  }
+}
+registerProcessor('lfo-processor', PhaseControlledLfoProcessor);
+`;
+
+
 export const soundEngine = {
-    app: null, // Will be set on init
-    ctx: null, masterGain: null, effectsGain: null, nodes: {},
+    app: null, ctx: null, masterGain: null, effectsGain: null, nodes: {},
 
     // --- Engine Lifecycle ---
     async init(initialStageRecipe, activeToggles, initialIntensity) {
@@ -95,28 +135,6 @@ export const soundEngine = {
         this.app.updateMediaSessionMetadata(0);
     },
 
-    // --- Engine Public API ---
-    setStage(stageRecipe, nodeSet = this.nodes, when = this.ctx.currentTime, ramp = this.app.config.STAGE_CHANGE_RAMP_S) {
-        if (!this.ctx && !nodeSet.carrier) return;
-        const stageIndex = this.app.state.STAGES.findIndex(s => s.name === stageRecipe.name);
-        if (stageIndex !== -1) this.app.state.currentStage = stageIndex;
-        
-        nodeSet.carrier.setBinaural(stageRecipe.base, stageRecipe.beat, when, ramp);
-        nodeSet.pad.setFilter(stageRecipe.padCut, when, ramp);
-        if (nodeSet.iso) nodeSet.iso.setRate(stageRecipe.iso, when, ramp);
-        if (nodeSet.noise) nodeSet.noise.source.gain.linearRampToValueAtTime(stageRecipe.noise, when + ramp);
-        if (nodeSet.deepSleep) {
-            const targetGain = stageRecipe.deepSleepOn ? this.app.config.DEEP_SLEEP_GAIN_MULTIPLIER : 0;
-            nodeSet.deepSleep.setBinaural(stageRecipe.base, stageRecipe.beat, when, ramp);
-            nodeSet.deepSleep.gainNode.gain.linearRampToValueAtTime(targetGain, when + ramp);
-        }
-        
-        if (this.ctx && this.ctx.state !== 'closed') { // Only update UI for live engine
-            this.app.uiController.updateUIStage(this.app);
-            this.app.updateMediaSessionMetadata(this.app.state.currentStage);
-        }
-    },
-
     setIntensity(value, ramp = 0.1) {
         if (this.effectsGain) {
             this.effectsGain.gain.linearRampToValueAtTime(value, this.ctx.currentTime + ramp);
@@ -134,37 +152,141 @@ export const soundEngine = {
         }
     },
 
+    setStage(stageRecipe, nodeSet = this.nodes, scheduleTime, ramp, globalTimeOffset, chunkDuration) {
+        if (!this.ctx || !nodeSet.carrier) return;
+    
+        const isOffline = globalTimeOffset !== undefined;
+        const now = isOffline ? 0 : this.ctx.currentTime;
+        let scheduleStart = isOffline ? scheduleTime : now + scheduleTime;
+    
+        const calculateInitialValue = (paramKey) => {
+            let valueAtStart = this.app.state.STAGES[0][paramKey];
+            if (!isOffline) return valueAtStart; // Not needed for live context
+    
+            const totalDur = parseInt(this.app.ui.lengthSlider.value, 10) * 60;
+            const stageDur = totalDur / this.app.state.STAGES.length;
+    
+            for (let i = 0; i < this.app.state.STAGES.length; i++) {
+                const s = this.app.state.STAGES[i];
+                const prev_s = this.app.state.STAGES[i - 1] || s;
+                const stageStartTime = i * stageDur;
+                const rampEndTime = stageStartTime + ramp;
+    
+                if (globalTimeOffset >= rampEndTime) {
+                    valueAtStart = s[paramKey];
+                } else if (globalTimeOffset > stageStartTime && globalTimeOffset < rampEndTime) {
+                    const progress = (globalTimeOffset - stageStartTime) / ramp;
+                    valueAtStart = prev_s[paramKey] + (s[paramKey] - prev_s[paramKey]) * progress;
+                    break;
+                } else if (globalTimeOffset <= stageStartTime) {
+                    valueAtStart = prev_s[paramKey];
+                    break;
+                }
+            }
+            return valueAtStart;
+        };
+    
+        // Handle Binaural Beats
+        const base = calculateInitialValue('base');
+        const beat = calculateInitialValue('beat');
+        nodeSet.carrier.leftOsc.frequency.setValueAtTime(Math.max(8, base - beat / 2), now);
+        nodeSet.carrier.rightOsc.frequency.setValueAtTime(Math.max(8, base + beat / 2), now);
+        if (isOffline) {
+            if (scheduleStart >= 0 && scheduleStart < chunkDuration) {
+                nodeSet.carrier.setBinaural(stageRecipe.base, stageRecipe.beat, scheduleStart, ramp);
+            }
+        } else {
+            nodeSet.carrier.setBinaural(stageRecipe.base, stageRecipe.beat, scheduleStart, ramp);
+        }
+
+        // Handle Pad Filter
+        const padCut = calculateInitialValue('padCut');
+        nodeSet.pad.filter.frequency.setValueAtTime(padCut, now);
+        if (isOffline) {
+            if (scheduleStart >= 0 && scheduleStart < chunkDuration) {
+                nodeSet.pad.setFilter(stageRecipe.padCut, scheduleStart, ramp);
+            }
+        } else {
+            nodeSet.pad.setFilter(stageRecipe.padCut, scheduleStart, ramp);
+        }
+
+        // Handle Isochronic Gating
+        if (nodeSet.iso) {
+            const isoRate = calculateInitialValue('iso');
+            nodeSet.iso.lfo.parameters.get('frequency').setValueAtTime(isoRate, now);
+            if (isOffline) {
+                if (scheduleStart >= 0 && scheduleStart < chunkDuration) {
+                    nodeSet.iso.setRate(stageRecipe.iso, scheduleStart, ramp);
+                }
+            } else {
+                nodeSet.iso.setRate(stageRecipe.iso, scheduleStart, ramp);
+            }
+        }
+
+        // Handle Pink Noise
+        if (nodeSet.noise) {
+            const noiseGain = calculateInitialValue('noise');
+            nodeSet.noise.source.gain.setValueAtTime(noiseGain, now);
+             if (isOffline) {
+                if (scheduleStart >= 0 && scheduleStart < chunkDuration) {
+                   nodeSet.noise.source.gain.linearRampToValueAtTime(stageRecipe.noise, scheduleStart + ramp);
+                }
+            } else {
+                 nodeSet.noise.source.gain.linearRampToValueAtTime(stageRecipe.noise, scheduleStart + ramp);
+            }
+        }
+        
+        // Update UI only for live context
+        if (!isOffline) {
+            const stageIndex = this.app.state.STAGES.findIndex(s => s.name === stageRecipe.name);
+            if (stageIndex !== -1) this.app.state.currentStage = stageIndex;
+            this.app.uiController.updateUIStage(this.app);
+            this.app.updateMediaSessionMetadata(this.app.state.currentStage);
+        }
+    },
+    
     // --- Audio Node Creation (Private) ---
     _clearAudioGraph() {
         if (!this.nodes || Object.keys(this.nodes).length === 0) return;
-        
-        try { this.nodes.carrier.outputLeft.disconnect(); } catch(e){}
-        try { this.nodes.carrier.outputRight.disconnect(); } catch(e){}
-        try { this.nodes.pad.output.disconnect(); } catch(e){}
-        try { this.nodes.effectsGain.disconnect(); } catch(e){}
-        try { this.nodes.reverb.disconnect(); } catch(e){}
-
-        try { this.nodes.carrier.leftOsc.stop(); } catch(e){}
-        try { this.nodes.carrier.rightOsc.stop(); } catch(e){}
-        
-        this.app.toggleConfigs.forEach(config => {
-            const node = this.nodes[config.nodeKey];
-            if (!node) return;
-            
-            if (node.stopLoop) try { node.stopLoop(); } catch(e) {}
-            if (node.source && node.source.stop) try { node.source.stop(); } catch(e) {}
-            if (node.gate && node.gate.stop) try { node.gate.stop(); } catch(e) {}
-            if (node.baseGain && node.baseGain.stop) try { node.baseGain.stop(); } catch(e) {}
+        Object.values(this.nodes).forEach(node => {
+            if (node.output) node.output.disconnect();
+            else if (node.disconnect) node.disconnect();
+            if(node.leftOsc) { node.leftOsc.stop(); node.leftOsc.disconnect(); }
+            if(node.rightOsc) { node.rightOsc.stop(); node.rightOsc.disconnect(); }
+            if (node.stopLoop) node.stopLoop();
+            if (node.source && node.source.stop) node.source.stop();
         });
-
         this.nodes = {};
     },
 
     _createContext() {
         if (this.ctx) { try { this.ctx.close(); } catch(e) {} }
-        return new (window.AudioContext || window.webkitAudioContext)();
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        context.lfoModuleAdded = false; // Flag for worklet
+        return context;
     },
 
+    async _createLFO(ctx, options) {
+        if (!ctx.lfoModuleAdded) {
+            try {
+                const blob = new Blob([lfoProcessorString], { type: "application/javascript" });
+                const blobURL = URL.createObjectURL(blob);
+                await ctx.audioWorklet.addModule(blobURL);
+                ctx.lfoModuleAdded = true;
+            } catch (e) {
+                console.error("Error adding AudioWorklet module.", e);
+                // Fallback or error handling
+                return null;
+            }
+        }
+        const lfoNode = new AudioWorkletNode(ctx, 'lfo-processor', {
+            processorOptions: { startPhase: options.startPhase || 0 }
+        });
+        lfoNode.parameters.get('frequency').setValueAtTime(options.frequency, ctx.currentTime);
+        lfoNode.parameters.get('amplitude').setValueAtTime(options.amplitude || 1, ctx.currentTime);
+        return lfoNode;
+    },
+    
     _createReverb(ctx, duration = 3, decay = 2.0) {
         const rate = ctx.sampleRate, len = Math.floor(duration * rate), buf = ctx.createBuffer(2, len, rate);
         for(let ch = 0; ch < 2; ch++) {
@@ -174,15 +296,13 @@ export const soundEngine = {
         const conv = ctx.createConvolver(); conv.buffer = buf; return conv;
     },
     
-    _createCarrierPair(ctx, stageRecipe) {
-        const left = ctx.createOscillator(), right = ctx.createOscillator(); left.type = right.type = 'sine';
-        left.frequency.setValueAtTime(Math.max(8, stageRecipe.base - stageRecipe.beat / 2), ctx.currentTime);
-        right.frequency.setValueAtTime(Math.max(8, stageRecipe.base + stageRecipe.beat / 2), ctx.currentTime);
-        left.start(); right.start();
+    async _createCarrierPair(ctx, stageRecipe, globalTimeOffset = 0) {
+        const left = ctx.createOscillator(), right = ctx.createOscillator(); left.type = right.type = 'sine'; left.start(); right.start();
         
-        const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.06;
-        const lfoG = ctx.createGain(); lfoG.gain.value = 1.6;
-        lfo.connect(lfoG); lfoG.connect(left.frequency); lfoG.connect(right.frequency); lfo.start();
+        const vibLFOPhase = (2 * Math.PI * 0.06 * globalTimeOffset) % (2 * Math.PI);
+        const lfo = await this._createLFO(ctx, { frequency: 0.06, amplitude: 1.6, startPhase: vibLFOPhase});
+
+        lfo.connect(left.frequency); lfo.connect(right.frequency);
 
         const panL = ctx.createStereoPanner(); panL.pan.value = -0.6;
         const panR = ctx.createStereoPanner(); panR.pan.value = 0.6;
@@ -198,7 +318,7 @@ export const soundEngine = {
         };
     },
 
-    _createPadLayer(ctx) {
+    async _createPadLayer(ctx, globalTimeOffset = 0) {
         const master = ctx.createGain(); master.gain.value = 0.0;
         const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 1200; filter.Q.value = 0.7;
         master.connect(filter);
@@ -207,14 +327,16 @@ export const soundEngine = {
         const base = 110;
         for(let i = 0; i < 3; i++) {
             const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = base * (1 + (i-1)*0.02);
-            const lfo = ctx.createOscillator(); lfo.frequency.value = 0.02 + Math.random()*0.04;
-            const lg = ctx.createGain(); lg.gain.value = 0.5 + Math.random()*0.6;
-            lfo.connect(lg); lg.connect(osc.frequency); lfo.start(); osc.start(); osc.connect(master);
+            const freq = 0.02 + Math.random()*0.04;
+            const phase = (2 * Math.PI * freq * globalTimeOffset) % (2 * Math.PI);
+            const lfo = await this._createLFO(ctx, { frequency: freq, amplitude: 0.5 + Math.random()*0.6, startPhase: phase});
+            lfo.connect(osc.frequency); osc.start(); osc.connect(master);
         }
 
-        const ampLFO = ctx.createOscillator(); ampLFO.frequency.value = 0.03;
-        const ampG = ctx.createGain(); ampG.gain.value = 0.25;
-        ampLFO.connect(ampG); ampG.connect(master.gain); ampLFO.start();
+        const ampFreq = 0.03;
+        const ampPhase = (2 * Math.PI * ampFreq * globalTimeOffset) % (2 * Math.PI);
+        const ampLFO = await this._createLFO(ctx, { frequency: ampFreq, amplitude: 0.25, startPhase: ampPhase });
+        ampLFO.connect(master.gain);
         return { output: out, filter, setFilter: (cut, when, ramp) => filter.frequency.linearRampToValueAtTime(cut, when + ramp) };
     },
 
@@ -230,54 +352,43 @@ export const soundEngine = {
         const g = ctx.createGain(); src.connect(g); src.start(); return g;
     },
 
-    _createIsoLayer(ctx, stageRecipe) {
+    async _createIsoLayer(ctx, stageRecipe, globalTimeOffset = 0) {
         const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 80;
-        const outG = ctx.createGain(); // Final output gain, which will be modulated
+        const outG = ctx.createGain(); 
 
-        // Create the LFO for a smooth tremolo effect
-        const gate = ctx.createOscillator(); gate.type = 'sine'; // Use a smooth sine wave to prevent clicks
-        gate.frequency.setValueAtTime(stageRecipe.iso, ctx.currentTime);
+        const isoFreq = stageRecipe.iso;
+        const phase = (2 * Math.PI * isoFreq * globalTimeOffset) % (2 * Math.PI);
+        const lfo = await this._createLFO(ctx, { frequency: isoFreq, amplitude: 0.4, startPhase: phase });
+        lfo.connect(outG.gain);
 
-        // This gain node controls the depth of the modulation (how much the volume changes)
-        const tremoloDepth = ctx.createGain();
-        tremoloDepth.gain.value = 0.4; // A depth of 0.4 means volume oscillates by +/- 40%
-
-        // A constant source provides the base (center) gain level for the tremolo.
-        const baseGain = ctx.createConstantSource();
-        baseGain.offset.value = 0.5; // Center the volume at 50%
-
-        // Connect the LFO (gate) through its depth control to the output gain parameter
-        gate.connect(tremoloDepth);
-        tremoloDepth.connect(outG.gain);
-
-        // Connect the base gain level to the output gain parameter as well.
-        // The final gain will be the sum: 0.5 + (sine wave from -0.4 to +0.4), resulting in a smooth 0.1 to 0.9 oscillation.
+        const baseGain = ctx.createConstantSource(); baseGain.offset.value = 0.5;
         baseGain.connect(outG.gain);
 
-        // Connect the sound source (osc) to the now-modulated gain node
         osc.connect(outG);
-        
-        // Start all the audio sources
-        osc.start();
-        gate.start();
-        baseGain.start();
-
-        return { output: outG, gainNode: outG, gate, baseGain, setRate: (hz, when, ramp) => gate.frequency.linearRampToValueAtTime(hz, when + ramp) };
+        osc.start(); baseGain.start();
+        return { output: outG, gainNode: outG, lfo, setRate: (hz, when, ramp) => lfo.parameters.get('frequency').linearRampToValueAtTime(hz, when + ramp) };
     },
 
-    _createWindSound(ctx) {
+    async _createWindSound(ctx, stageRecipe, globalTimeOffset = 0) {
         const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), output = buffer.getChannelData(0);
         for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
         const source = ctx.createBufferSource(); source.buffer = buffer; source.loop = true;
         const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 400; filter.Q.value = 0.5;
-        const gainLFO = ctx.createOscillator(); gainLFO.type = 'sine'; gainLFO.frequency.value = 0.08;
-        const gainMod = ctx.createGain(); gainMod.gain.value = 0.3; gainLFO.connect(gainMod);
+        
+        const gainLFOFreq = 0.08;
+        const gainLFOPhase = (2 * Math.PI * gainLFOFreq * globalTimeOffset) % (2 * Math.PI);
+        const gainLFO = await this._createLFO(ctx, { frequency: gainLFOFreq, amplitude: 0.3, startPhase: gainLFOPhase });
+        
         const mainGain = ctx.createGain(); mainGain.gain.value = 0.15;
         const panner = ctx.createStereoPanner(); panner.pan.value = 0;
-        const panLFO = ctx.createOscillator(); panLFO.type = 'sine'; panLFO.frequency.value = 0.05;
-        const panMod = ctx.createGain(); panMod.gain.value = 0.8; panLFO.connect(panMod); panMod.connect(panner.pan);
-        source.connect(filter); filter.connect(mainGain); gainMod.connect(mainGain.gain); mainGain.connect(panner);
-        source.start(); gainLFO.start(); panLFO.start();
+
+        const panLFOFreq = 0.05;
+        const panLFOPhase = (2 * Math.PI * panLFOFreq * globalTimeOffset) % (2 * Math.PI);
+        const panLFO = await this._createLFO(ctx, { frequency: panLFOFreq, amplitude: 0.8, startPhase: panLFOPhase });
+
+        panLFO.connect(panner.pan);
+        source.connect(filter); filter.connect(mainGain); gainLFO.connect(mainGain.gain); mainGain.connect(panner);
+        source.start();
         return { output: panner, gainNode: mainGain };
     },
     
@@ -291,7 +402,7 @@ export const soundEngine = {
         return ctx.createPeriodicWave(real, imag, { disableNormalization: true });
     },
 
-    async _createShamanicDrum(ctx) {
+    async _createShamanicDrum(ctx, stageRecipe, globalTimeOffset = 0) {
         const LOOP_DURATION_S = 10.0; // 6 BPM
         const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(LOOP_DURATION_S * ctx.sampleRate), ctx.sampleRate);
         const mainGain = offlineCtx.createGain(); mainGain.gain.value = 0.847; mainGain.connect(offlineCtx.destination);
@@ -309,26 +420,37 @@ export const soundEngine = {
             osc.start(time); osc.stop(time + decay + 0.1);
         };
         scheduleBeat(40, 0, 12.0, 0.65); scheduleBeat(55, 0, 4.0, 0.45);
-        const source = ctx.createBufferSource(); source.buffer = await offlineCtx.startRendering();
-        source.loop = true; source.start();
-        return { output: source };
+        const source = ctx.createBufferSource();
+        source.buffer = await offlineCtx.startRendering();
+        source.loop = true;
+        const loopStartOffset = (globalTimeOffset || 0) % LOOP_DURATION_S;
+        source.start(0, loopStartOffset);
+        return { output: source, source };
     },
 
-    _createSingingBowl(ctx) {
+    async _createSingingBowl(ctx, stageRecipe, globalTimeOffset = 0) {
         const partials = [{ f: 1, g: 1.0 }, { f: 2.005, g: 0.7 }, { f: 3.42, g: 0.55 }, { f: 4.0, g: 0.25 }, { f: 5.71, g: 0.35 }];
         const mainGain = ctx.createGain(); mainGain.gain.value = 0.35;
         const panner = ctx.createStereoPanner(); mainGain.connect(panner);
-        const panLFO = ctx.createOscillator(); panLFO.type = 'sine'; panLFO.frequency.value = 0.025;
-        const panMod = ctx.createGain(); panMod.gain.value = 0.9; panLFO.connect(panMod); panMod.connect(panner.pan); panLFO.start();
+
+        const panLFOFreq = 0.025;
+        const panLFOPhase = (2 * Math.PI * panLFOFreq * globalTimeOffset) % (2 * Math.PI);
+        const panLFO = await this._createLFO(ctx, { frequency: panLFOFreq, amplitude: 0.9, startPhase: panLFOPhase });
+        panLFO.connect(panner.pan);
+        
         const envelope = ctx.createGain(); envelope.gain.value = 0.0; envelope.connect(mainGain);
-        partials.forEach(p => {
-            const osc = ctx.createOscillator(), vibLFO = ctx.createOscillator(), vibDepth = ctx.createGain(), partialGain = ctx.createGain();
-            osc.type = 'sine'; osc.frequency.value = 90 * p.f;
-            vibLFO.type = 'sine'; vibLFO.frequency.value = 2.5 + Math.random() * 2;
-            vibDepth.gain.value = 90 * p.f * 0.004; vibLFO.connect(vibDepth); vibDepth.connect(osc.frequency);
-            partialGain.gain.value = p.g; osc.connect(partialGain); partialGain.connect(envelope);
-            osc.start(); vibLFO.start();
-        });
+        for(const p of partials) {
+            const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = 90 * p.f;
+            const vibFreq = 2.5 + Math.random() * 2;
+            const vibPhase = (2 * Math.PI * vibFreq * globalTimeOffset) % (2 * Math.PI);
+            const vibLFO = await this._createLFO(ctx, { frequency: vibFreq, amplitude: 90 * p.f * 0.004, startPhase: vibPhase });
+            
+            const partialGain = ctx.createGain(); partialGain.gain.value = p.g;
+            vibLFO.connect(osc.frequency);
+            osc.connect(partialGain); partialGain.connect(envelope);
+            osc.start();
+        };
+
         const trigger = (time) => {
             try {
                 envelope.gain.cancelScheduledValues(time);
@@ -351,20 +473,23 @@ export const soundEngine = {
         return { output: panner, gainNode: mainGain, trigger, startLoop, stopLoop, envelope };
     },
 
-    _createDeepSleepBinaural(ctx, stageRecipe) {
+    async _createDeepSleepBinaural(ctx, stageRecipe, globalTimeOffset = 0) {
         const leftOsc = ctx.createOscillator(), rightOsc = ctx.createOscillator(); leftOsc.type = rightOsc.type = 'sine';
-        leftOsc.frequency.setValueAtTime(Math.max(8, stageRecipe.base - stageRecipe.beat / 2), ctx.currentTime);
-        rightOsc.frequency.setValueAtTime(Math.max(8, stageRecipe.base + stageRecipe.beat / 2), ctx.currentTime);
         leftOsc.start(); rightOsc.start();
         
-        const volumeLFO = ctx.createOscillator(); volumeLFO.type = 'sine'; volumeLFO.frequency.value = 0.08; volumeLFO.start();
+        const volLFOFreq = 0.08;
+        const volLFOPhase = (2 * Math.PI * volLFOFreq * globalTimeOffset) % (2 * Math.PI);
+        const volumeLFO = await this._createLFO(ctx, { frequency: volLFOFreq, amplitude: 0.1, startPhase: volLFOPhase });
         const masterGain = ctx.createGain(); masterGain.gain.value = this.app.config.DEEP_SLEEP_GAIN_MULTIPLIER;
-        const volGainMod = ctx.createGain(); volGainMod.gain.value = 0.1;
-        volumeLFO.connect(volGainMod); volGainMod.connect(masterGain.gain);
+        volumeLFO.connect(masterGain.gain);
         
-        const leftPanner = ctx.createStereoPanner(), rightPanner = ctx.createStereoPanner(), panLFO = ctx.createOscillator(), panMod = ctx.createGain(), panInverter = ctx.createGain(), merger = ctx.createChannelMerger(2);
-        panLFO.type = 'sine'; panLFO.frequency.value = 0.015; panLFO.start(); panMod.gain.value = 1.0; panInverter.gain.value = -1;
-        panLFO.connect(panMod); panMod.connect(leftPanner.pan); panMod.connect(panInverter); panInverter.connect(rightPanner.pan);
+        const leftPanner = ctx.createStereoPanner(), rightPanner = ctx.createStereoPanner(), panInverter = ctx.createGain(), merger = ctx.createChannelMerger(2);
+        panInverter.gain.value = -1;
+        const panLFOFreq = 0.015;
+        const panLFOPhase = (2 * Math.PI * panLFOFreq * globalTimeOffset) % (2 * Math.PI);
+        const panLFO = await this._createLFO(ctx, { frequency: panLFOFreq, amplitude: 1.0, startPhase: panLFOPhase });
+
+        panLFO.connect(leftPanner.pan); panLFO.connect(panInverter); panInverter.connect(rightPanner.pan);
         leftOsc.connect(leftPanner); rightOsc.connect(rightPanner);
         leftPanner.connect(merger, 0, 0); rightPanner.connect(merger, 0, 1); merger.connect(masterGain);
         
@@ -374,98 +499,70 @@ export const soundEngine = {
         }};
     },
     
-    async _createBrainPulse(ctx) {
+    async _createBrainPulse(ctx, stageRecipe, globalTimeOffset = 0) {
         const LOOP_DURATION_S = 15;
+        // Pre-rendering is fast and ensures phase consistency. We don't need a worklet here.
         const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(LOOP_DURATION_S * ctx.sampleRate), ctx.sampleRate);
         const masterOutput = offlineCtx.createGain();
         const compressor = offlineCtx.createDynamicsCompressor();
-        
-        compressor.threshold.value = -24;
-        compressor.knee.value = 30;
-        compressor.ratio.value = 12;
-        compressor.attack.value = 0.003;
-        compressor.release.value = 0.25;
-
-        masterOutput.connect(compressor);
-        compressor.connect(offlineCtx.destination);
-
+        compressor.threshold.value = -24; compressor.knee.value = 30; compressor.ratio.value = 12;
+        compressor.attack.value = 0.003; compressor.release.value = 0.25;
+        masterOutput.connect(compressor); compressor.connect(offlineCtx.destination);
         const nodes = ['mainOscillator', 'lfoOscillator', 'pannerLFO', 'chorusOscillator1', 'chorusOscillator2'].reduce((acc, k) => (acc[k] = offlineCtx.createOscillator(), acc), {});
         const gains = ['tremoloGain', 'volumeRampGain', 'chorusGain1', 'chorusGain2'].reduce((acc, k) => (acc[k] = offlineCtx.createGain(), acc), {});
         const pannerNode = offlineCtx.createStereoPanner();
-        
-        nodes.mainOscillator.type = 'sine';
-        nodes.mainOscillator.frequency.value = 55;
-        nodes.lfoOscillator.type = 'sine';
-        nodes.lfoOscillator.frequency.value = 4;
-        nodes.pannerLFO.type = 'sine';
-        nodes.pannerLFO.frequency.value = 0.1;
-        nodes.chorusOscillator1.type = 'sine';
-        nodes.chorusOscillator1.frequency.value = 27.5;
-        nodes.chorusOscillator2.type = 'sine';
-        nodes.chorusOscillator2.frequency.value = 27.5;
-        
-        gains.volumeRampGain.gain.value = 0;
-        gains.chorusGain1.gain.value = 0;
-        gains.chorusGain2.gain.value = 0;
-        gains.tremoloGain.gain.value = 0.5;
-        
+        nodes.mainOscillator.type = 'sine'; nodes.mainOscillator.frequency.value = 55;
+        nodes.lfoOscillator.type = 'sine'; nodes.lfoOscillator.frequency.value = 4;
+        nodes.pannerLFO.type = 'sine'; nodes.pannerLFO.frequency.value = 0.1;
+        nodes.chorusOscillator1.type = 'sine'; nodes.chorusOscillator1.frequency.value = 27.5;
+        nodes.chorusOscillator2.type = 'sine'; nodes.chorusOscillator2.frequency.value = 27.5;
+        gains.volumeRampGain.gain.value = 0; gains.chorusGain1.gain.value = 0;
+        gains.chorusGain2.gain.value = 0; gains.tremoloGain.gain.value = 0.5;
         nodes.mainOscillator.connect(gains.volumeRampGain).connect(pannerNode).connect(masterOutput);
         nodes.lfoOscillator.connect(gains.tremoloGain).connect(gains.volumeRampGain.gain);
         nodes.pannerLFO.connect(pannerNode.pan);
         nodes.chorusOscillator1.connect(gains.chorusGain1).connect(masterOutput);
         nodes.chorusOscillator2.connect(gains.chorusGain2).connect(masterOutput);
-
-        const now = 0, endTime = now + LOOP_DURATION_S;
-        const FADE_IN_TIME = 0.02;
-        const FADE_OUT_TIME = 1.5;
-
-        // Main Oscillator
+        const now = 0, endTime = now + LOOP_DURATION_S, FADE_IN_TIME = 0.02, FADE_OUT_TIME = 1.5;
         nodes.mainOscillator.frequency.setValueAtTime(55, now);
         nodes.mainOscillator.frequency.linearRampToValueAtTime(20, endTime);
         gains.volumeRampGain.gain.setValueAtTime(0, now);
         gains.volumeRampGain.gain.linearRampToValueAtTime(1.0, now + FADE_IN_TIME);
         gains.volumeRampGain.gain.setValueAtTime(1.0, endTime - FADE_OUT_TIME);
         gains.volumeRampGain.gain.linearRampToValueAtTime(0, endTime);
-
-        // LFO
         nodes.lfoOscillator.frequency.setValueAtTime(4, now);
         nodes.lfoOscillator.frequency.linearRampToValueAtTime(1, endTime);
-
-        // Chorus Oscillators
         nodes.chorusOscillator1.frequency.setValueAtTime(27.5, now);
         nodes.chorusOscillator1.frequency.linearRampToValueAtTime(20, endTime);
         nodes.chorusOscillator2.frequency.setValueAtTime(27.5, now);
         nodes.chorusOscillator2.frequency.linearRampToValueAtTime(20, endTime);
-        
-        // Chorus Gains with fade in/out
         gains.chorusGain1.gain.setValueAtTime(0, now);
         gains.chorusGain1.gain.linearRampToValueAtTime(0.05, now + FADE_IN_TIME);
         gains.chorusGain1.gain.setValueAtTime(0.3, endTime - FADE_OUT_TIME);
         gains.chorusGain1.gain.linearRampToValueAtTime(0, endTime);
-
         gains.chorusGain2.gain.setValueAtTime(0, now);
         gains.chorusGain2.gain.linearRampToValueAtTime(0.05, now + FADE_IN_TIME);
         gains.chorusGain2.gain.setValueAtTime(0.3, endTime - FADE_OUT_TIME);
         gains.chorusGain2.gain.linearRampToValueAtTime(0, endTime);
-        
         Object.values(nodes).forEach(n => n.start(now));
-        
         const source = ctx.createBufferSource();
         source.buffer = await offlineCtx.startRendering();
         source.loop = true;
-        source.start();
-        return { output: source };
+        const loopStartOffset = (globalTimeOffset || 0) % LOOP_DURATION_S;
+        source.start(0, loopStartOffset);
+        return { output: source, source };
     },
 
-    async _createAudioGraph(ctx, destinationNode, initialStage, activeToggles, initialIntensity) {
+    async _createAudioGraph(ctx, destinationNode, initialStage, activeToggles, initialIntensity, globalTimeOffset = 0) {
         const effectsGain = ctx.createGain(); effectsGain.gain.value = initialIntensity; effectsGain.connect(destinationNode);
         const nodes = { effectsGain };
 
         nodes.reverb = this._createReverb(ctx); nodes.reverb.connect(destinationNode);
-        nodes.carrier = this._createCarrierPair(ctx, initialStage);
+        nodes.carrier = await this._createCarrierPair(ctx, initialStage, globalTimeOffset);
         nodes.carrier.outputLeft.connect(destinationNode); nodes.carrier.outputRight.connect(destinationNode);
         nodes.carrier.outputLeft.connect(nodes.reverb); nodes.carrier.outputRight.connect(nodes.reverb);
-        nodes.pad = this._createPadLayer(ctx); nodes.pad.output.connect(destinationNode); nodes.pad.output.connect(nodes.reverb);
+        nodes.pad = await this._createPadLayer(ctx, globalTimeOffset); 
+        nodes.pad.output.connect(destinationNode); nodes.pad.output.connect(nodes.reverb);
 
         const creators = {
             iso: this._createIsoLayer, noise: this._createPinkNoise, wind: this._createWindSound,
@@ -477,10 +574,7 @@ export const soundEngine = {
             const { nodeKey } = config;
             if (!creators[nodeKey]) continue;
 
-            let node;
-            if (['brainPulse', 'drum'].includes(nodeKey)) node = await creators[nodeKey].call(this, ctx);
-            else if (['iso', 'deepSleep'].includes(nodeKey)) node = creators[nodeKey].call(this, ctx, initialStage);
-            else node = creators[nodeKey].call(this, ctx);
+            const node = await creators[nodeKey].call(this, ctx, initialStage, globalTimeOffset);
             
             const gainSwitch = ctx.createGain(); gainSwitch.gain.value = activeToggles[nodeKey] ? 1 : 0;
             const output = node.output || node; output.connect(gainSwitch);
@@ -508,7 +602,7 @@ export const soundEngine = {
 
         if (expectedStage < this.app.state.STAGES.length && expectedStage !== this.app.state.currentStage) {
             const stageRecipe = this.app.state.STAGES[expectedStage];
-            this.setStage(stageRecipe);
+            this.setStage(stageRecipe, this.nodes, 0, this.app.config.STAGE_CHANGE_RAMP_S);
         }
     },
 };

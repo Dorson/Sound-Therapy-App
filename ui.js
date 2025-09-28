@@ -62,3 +62,44 @@ export function checkPWA(app) {
          app.ui.installInstructions.style.display = 'none';
     }
 }
+
+// --- Save Modal Functions ---
+
+export function updateFormatInfo(app) {
+    const selector = app.ui.formatSelector;
+    const infoEl = app.ui.formatInfo;
+    const selectedOption = selector.options[selector.selectedIndex];
+    const bitrate = selectedOption.dataset.bitrate;
+
+    if (bitrate) {
+        const kbps = parseInt(bitrate, 10) / 1000;
+        infoEl.textContent = `${kbps} kbps bitrate. High-quality compressed format for smaller files.`;
+    } else {
+        infoEl.textContent = 'Uncompressed, lossless format. Largest file size.';
+    }
+}
+
+export function showSaveModal(app) {
+    app.ui.saveModal.classList.remove('hidden');
+    app.ui.saveModalBackdrop.classList.remove('hidden');
+    updateFormatInfo(app);
+    setRenderMode(app, false); // Reset to settings view
+    updateRenderProgress(app, 0, 'Ready to export.', '');
+}
+
+export function hideSaveModal(app) {
+    if (app.state.isRendering) return; // Prevent closing while rendering
+    app.ui.saveModal.classList.add('hidden');
+    app.ui.saveModalBackdrop.classList.add('hidden');
+}
+
+export function setRenderMode(app, isRendering) {
+    app.ui.saveSettingsView.classList.toggle('hidden', isRendering);
+    app.ui.saveProgressView.classList.toggle('hidden', !isRendering);
+}
+
+export function updateRenderProgress(app, progress, status, timeText = '') {
+    app.ui.renderProgressBar.style.width = `${Math.min(100, progress)}%`;
+    app.ui.progressStatusText.textContent = status;
+    app.ui.progressTimeText.textContent = timeText;
+}
