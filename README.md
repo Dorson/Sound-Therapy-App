@@ -1,6 +1,7 @@
 # Binaural Beats & Sound Therapy Soundscape Generator
 
-![SEE LIVE DEMO](https://dorson.github.io/Sound-Therapy-App/)
+[SEE LIVE DEMO](https://dorson.github.io/Sound-Therapy-App/)
+https://dorson.github.io/Sound-Therapy-App/
 
 
 **A powerful, offline-first web application for creating immersive soundscapes with binaural beats and ambient sounds. Designed for relaxation, focus, meditation, and sleep enhancement.**
