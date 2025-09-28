@@ -20,7 +20,7 @@ export const PRESETS = {
    
 export const config = {
     APP_NAME: 'Binaural Beats & Sound Therapy',
-    MASTER_GAIN_MULTIPLIER: 0.45,
+    DEFAULT_MASTER_GAIN: 0.45, // Serves as default/initial value and render volume.
     PAD_GAIN_MULTIPLIER: 0.6,
     DEEP_SLEEP_GAIN_MULTIPLIER: 0.15,
     FADE_DURATION_S: 3,

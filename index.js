@@ -59,6 +59,8 @@ const app = {
         this.ui.saveAudioBtn = document.getElementById('saveAudioBtn');
         this.ui.lengthSlider = document.getElementById('lengthSlider');
         this.ui.intensitySlider = document.getElementById('intensity');
+        this.ui.masterVolumeSlider = document.getElementById('masterVolumeSlider');
+        this.ui.volLabel = document.getElementById('volLabel');
         this.ui.lenLabel = document.getElementById('lenLabel');
         this.ui.intLabel = document.getElementById('intLabel');
         this.ui.stageName = document.getElementById('stageName');
@@ -96,6 +98,7 @@ const app = {
         this.ui.nextStageBtn.addEventListener('click', this.goToNextStage.bind(this));
         this.ui.lengthSlider.addEventListener('input', this.debounce(e => this.ui.lenLabel.textContent = e.target.value, 50));
         this.ui.intensitySlider.addEventListener('input', this.debounce((e) => this.handleIntensityChange(e.target.value), 50));
+        this.ui.masterVolumeSlider.addEventListener('input', this.debounce((e) => this.handleMasterVolumeChange(e.target.value), 50));
         this.ui.presetSelector.addEventListener('change', this.debounce(this.handlePresetChange.bind(this), 100));
         
         this.toggleConfigs.forEach(config => {
@@ -271,6 +274,13 @@ const app = {
            this.state.isInteracting = false;
        }
     },
+
+    handleMasterVolumeChange(value) {
+        this.ui.volLabel.textContent = value;
+        if (this.soundEngine.ctx) {
+            this.soundEngine.setMasterVolume(parseFloat(value));
+        }
+    },
    
     handleIntensityChange(value) {
         this.ui.intLabel.textContent = value;
@@ -373,7 +383,7 @@ const app = {
                 offlineMasterGain.connect(offlineCtx.destination);
                 
                 const nodes = await this.soundEngine._createAudioGraph(offlineCtx, offlineMasterGain, this.state.STAGES[0], activeToggles, intensity, chunkStartTime);
-                offlineMasterGain.gain.setValueAtTime(this.config.MASTER_GAIN_MULTIPLIER, 0);
+                offlineMasterGain.gain.setValueAtTime(this.config.DEFAULT_MASTER_GAIN, 0);
     
                 const stageDur = totalDuration / this.state.STAGES.length;
                 this.state.STAGES.forEach((stage, idx) => {

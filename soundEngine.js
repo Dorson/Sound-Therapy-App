@@ -56,7 +56,8 @@ export const soundEngine = {
     resume() {
         if (!this.ctx || !this.masterGain) return;
         this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
-        this.masterGain.gain.linearRampToValueAtTime(this.app.config.MASTER_GAIN_MULTIPLIER, this.ctx.currentTime + this.app.config.RESUME_FADE_DURATION_S);
+        const targetGain = parseFloat(this.app.ui.masterVolumeSlider.value);
+        this.masterGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + this.app.config.RESUME_FADE_DURATION_S);
         
         if (this.nodes.bowl && this.app.state.isBowlEnabled) this.nodes.bowl.startLoop();
         this.app.startAuto();
@@ -126,13 +127,20 @@ export const soundEngine = {
         if (this.nodes.bowl && this.app.state.isBowlEnabled) this.nodes.bowl.startLoop();
         
         this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
-        this.masterGain.gain.linearRampToValueAtTime(this.app.config.MASTER_GAIN_MULTIPLIER, this.ctx.currentTime + fadeS);
+        const targetGain = parseFloat(this.app.ui.masterVolumeSlider.value);
+        this.masterGain.gain.linearRampToValueAtTime(targetGain, this.ctx.currentTime + fadeS);
 
         this.app.state.currentStage = 0;
         this.app.state.sessionElapsedTime = 0;
         if (this.app.state.autoplayInterval) this.app.state.lastTickTime = performance.now();
         this.app.uiController.updateUIStage(this.app);
         this.app.updateMediaSessionMetadata(0);
+    },
+
+    setMasterVolume(value, ramp = 0.1) {
+        if (this.masterGain && this.app.state.isPlaying) {
+            this.masterGain.gain.linearRampToValueAtTime(value, this.ctx.currentTime + ramp);
+        }
     },
 
     setIntensity(value, ramp = 0.1) {
