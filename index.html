@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Binaural Beats & Sound Therapy for Focus, Meditation & Sleep</title>
+ <meta name="theme-color" content="#d4a017">
+ <link rel="manifest" href="manifest.json" crossOrigin="use-credentials">
+ <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OTYgNDk2Ij48Y2lyY2xlIGN4PSIyNTIuMSIgY3k9IjI0Ni42IiByPSIyNDEuMiIgZmlsbD0iI2EyMDA4YSIvPjxlbGxpcHNlIGN4PSIxNzYuMyIgY3k9IjE3NyIgZmlsbD0iI2ViZmYzZiIgcng9IjcwLjYiIHJ5PSI2Ni45Ii8+PHBhdGggZmlsbD0iI2ViZmYzZiIgZD0iTTMwMiAxODNoOTd2MzdoLTk3eiIvPjxwYXRoIGZpbGw9IiNlYmZmM2YiIHN0cm9rZT0iI2ViZmYzZiIgc3Ryb2tlLXdpZHRoPSIyNS45IiBkPSJNMTExIDMwOGM3MiA5MCAxNjcgMTE1IDI1MiA2OSIvPjwvc3ZnPg==">
+ <link rel="stylesheet" href="index.css">
+</head>
+<body>
+ 
+ <div id="gradientBlobsContainer">
+ <div class="blob"></div><div class="blob"></div><div class="blob"></div><div class="blob"></div><div class="blob"></div>
+ </div>
+
+ <div class="main-container">
+ <header class="header">
+ <div>
+ <h1>Binaural Beats & Sound Therapy</h1>
+ <p>Headphones recommended • Low volume</p>
+ </div>
+ </header>
+
+ <main>
+ <div class="panel stage-info-panel">
+ <div id="stageInfo" class="stage-info" aria-live="polite">
+ <div id="stageName">Idle • Ready</div>
+ <div id="stageSub">Manual step or Auto-play available</div>
+ <div class="progress-bar-container">
+ <div id="progressBar"></div>
+ </div>
+ </div>
+ </div>
+
+ <div class="panel settings-panel">
+ <div class="settings-group">
+ <div class="button-row">
+ <button id="saveAudioBtn" class="settings-button save-audio-button">Save Audio</button>
+ <a href="#install-instructions" id="installAppBtn" class="settings-button install-app-button">Install App</a>
+ </div>
+ </div>
+ <div class="settings-group">
+ <h2>Presets</h2>
+ <label for="presetSelector">Select a Preset</label>
+ <select id="presetSelector">
+ <option value="none">Custom</option>
+ <option value="focus">Focus</option>
+ <option value="meditation">Meditation</option>
+ <option value="relaxation">Relaxation</option>
+ <option value="deep_sleep">Deep Sleep</option>
+ <option value="rem_sleep">REM Sleep Cycle</option>
+ <option value="energetic">Energetic</option>
+ <option value="bliss">Bliss</option>
+ </select>
+ </div>
+
+ <h2>Settings</h2>
+ <div class="slider-group">
+ <div class="slider-label">
+ <span id="lenLabel">10</span>
+ <span>Session Length (minutes)</span>
+ </div>
+ <input id="lengthSlider" type="range" min="3" max="60" value="10">
+ </div>
+
+ <div class="slider-group">
+ <div class="slider-label">
+ <span id="intLabel">0.6</span>
+ <span>Effects Intensity (volume)</span>
+ </div>
+ <input id="intensity" type="range" min="0" max="1" step="0.01" value="0.6">
+ </div>
+ 
+ <div class="toggle-group">
+ <h3> SoundScape Layer Effects </h3>
+ <button id="isoOption" role="switch" aria-checked="true" class="toggle-button">
+ <div class="checkmark-container" id="isoChkContainer">
+ <div id="isoChk" class="checkmark"></div>
+ </div>
+ <span>Isochronic gating</span>
+ </button>
+ <button id="noiseOption" role="switch" aria-checked="true" class="toggle-button">
+ <div class="checkmark-container" id="noiseChkContainer">
+ <div id="noiseChk" class="checkmark"></div>
+ </div>
+ <span>Pink noise</span>
+ </button>
+ <button id="windOption" role="switch" aria-checked="true" class="toggle-button">
+ <div class="checkmark-container" id="windChkContainer">
+ <div id="windChk" class="checkmark"></div>
+ </div>
+ <span>3D Wind effect</span>
+ </button>
+ <button id="drumOption" role="switch" aria-checked="true" class="toggle-button">
+ <div class="checkmark-container" id="drumChkContainer">
+ <div id="drumChk" class="checkmark"></div>
+ </div>
+ <span>6 BPM Shamanic drum</span>
+ </button>
+ <button id="bowlOption" role="switch" aria-checked="true" class="toggle-button">
+ <div class="checkmark-container" id="bowlChkContainer">
+ <div id="bowlChk" class="checkmark"></div>
+ </div>
+ <span>Distant Singing Bowl</span>
+ </button>
+ <button id="deepSleepOption" role="switch" aria-checked="false" class="toggle-button">
+ <div class="checkmark-container" id="deepSleepChkContainer">
+ <div id="deepSleepChk" class="checkmark"></div>
+ </div>
+ <span>Glymphatic Pulse</span>
+ </button>
+ <button id="brainPulseOption" role="switch" aria-checked="false" class="toggle-button">
+ <div class="checkmark-container" id="brainPulseChkContainer">
+ <div id="brainPulseChk" class="checkmark"></div>
+ </div>
+ <span>Falling Brain Pulse (15s, 55Hz to 20Hz)</span>
+ </button>
+ </div>
+ </div>
+ 
+ <div class="panel info-panel">
+    <h3>SoundScape Layer Effects Explained</h3>
+    <p>Each layer adds a unique texture to the soundscape, designed to influence your brain state in a specific way. Combine them to create your perfect session.</p>
+    <dl style="margin-top: 1rem; display: grid; gap: 1rem;">
+        <div>
+            <dt><strong>Isochronic Gating</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> This effect uses a single tone that is rapidly turned on and off in a precise, rhythmic pattern. Unlike binaural beats, headphones are not required to perceive the effect.
+                <br><strong>Intended Effect:</strong> The sharp contrast between sound and silence provides a very strong and effective stimulus for the brain, making it a potent form of brainwave entrainment for guiding the mind to target states like focus or relaxation.
+            </dd>
+        </div>
+        <div>
+            <dt><strong>Pink Noise</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> A sound spectrum with equal energy per octave, making it sound deeper and more balanced than white noise. It's common in natural sounds like waterfalls or steady rain.
+                <br><strong>Intended Effect:</strong> Masks jarring background noises to improve focus and create a stable auditory environment for sleep or meditation. The brain perceives it as a non-threatening, constant sound, reducing reactivity and promoting calmness.
+            </dd>
+        </div>
+        <div>
+            <dt><strong>3D Wind Effect</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> A synthesized wind sound created by filtering pink noise and modulating its volume and stereo position (panning left and right).
+                <br><strong>Intended Effect:</strong> Creates a dynamic, immersive sense of open space. This engages the brain's spatial hearing, which can reduce feelings of anxiety or confinement and promote a state of calm relaxation.
+            </dd>
+        </div>
+        <div>
+            <dt><strong>6 BPM Shamanic Drum</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> A deep, resonant drumbeat with a very slow, steady rhythm of 6 beats per minute (0.1 Hz). The tone is rich in low frequencies.
+                <br><strong>Intended Effect:</strong> This powerful, grounding rhythm is designed to guide the mind into a deep, trance-like meditative state. Its frequency falls within the deep Delta brainwave range, associated with profound relaxation and access to subconscious states (Theta waves).
+            </dd>
+        </div>
+        <div>
+            <dt><strong>Distant Singing Bowl</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> The sound of a Tibetan singing bowl, characterized by a fundamental tone and a rich spectrum of harmonic overtones. Reverb is used to create a sense of distance and space.
+                <br><strong>Intended Effect:</strong> The complex, resonant harmonics help to quiet internal mental chatter and promote mindfulness. The sound captures attention gently, guiding the brain toward a state of calm alertness associated with Alpha brainwaves (8-12 Hz).
+            </dd>
+        </div>
+        <div>
+            <dt><strong>Glymphatic Pulse</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> A very deep, slowly pulsing binaural beat that operates in the low Delta brainwave range (0.5-2 Hz), mimicking the slow-wave oscillations that occur during deep sleep.
+                <br><strong>Intended Effect:</strong> Aims to support the brain's natural deep sleep processes. This includes the glymphatic system, the brain's unique cleaning mechanism that is most active during deep, restorative sleep.
+            </dd>
+        </div>
+        <div>
+            <dt><strong>Falling Brain Pulse</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> A synthesized tone that slowly sweeps downwards in frequency over a 15-second cycle, moving from 55Hz down to 20Hz.
+                <br><strong>Intended Effect:</strong> Designed to guide the mind from a state of high-frequency activity (Gamma/high-Beta) down towards a more focused, less agitated state (mid-Beta). This auditory "downshifting" can help reduce mental clutter and ease into a state of relaxed concentration.
+            </dd>
+        </div>
+    </dl>
+ </div>
+
+ <div class="info-cards">
+ <div class="panel info-panel">
+ <h3>How to use</h3>
+ <p>Step through stages manually or use auto-play. Each stage gradually changes sound parameters for a smooth experience.</p>
+ </div>
+ <div class="panel info-panel">
+ <h3>Stages</h3>
+ <ol>
+ <li><strong>Grounding</strong> — deep hum, slow breath</li>
+ <li><strong>Energetic</strong> — nerve-tingle textures</li>
+ <li><strong>Focus</strong> — clarity, midband polish</li>
+ <li><strong>Intuitive</strong> — alpha/theta focus</li>
+ <li><strong>Bliss</strong> — harmonic bloom</li>
+ </ol>
+ </div>
+ <div class="panel info-panel">
+ <h3>Safety</h3>
+ <p>Start at low volume. Stop if you feel discomfort. Not for use while driving or operating machinery.</p>
+ </div>
+ </div>
+
+ <section id="install-instructions" class="panel info-panel">
+ <h3>Install as an App</h3>
+ <p>For quick offline access, you can install this soundscape generator on your device. This adds an icon to your home screen or desktop, just like a native app.</p>
+ <ul style="padding-left: 1.25rem; margin-top: 0.5rem; list-style-type: disc;">
+ <li><strong>Desktop (Chrome, Edge):</strong> Click the three-dot menu icon ( <svg style="display:inline; vertical-align: middle;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg> ) in the top-right corner, open the 'Save and Share' submenu, and then click 'Install...'. On some versions, you might see an install icon directly in the address bar.</li>
+ <li><strong>iPhone / iPad (Safari):</strong> Tap the 'Share' icon ( <svg style="display:inline; vertical-align: middle;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg> ), then scroll down and select 'Add to Home Screen'.</li>
+ <li><strong>Android (Chrome):</strong> Tap the three-dot menu icon ( <svg style="display:inline; vertical-align: middle;" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"></path></svg> ), then select 'Install app' or 'Add to Home screen'.</li>
+ </ul>
+ </section>
+
+ <section class="about-section">
+ <hr>
+ <div class="content">
+ <h2>About This Soundscape</h2>
+ 
+ <h3>What are Binaural Beats and Sound Therapy?</h3>
+ <p>
+ This app is an immersive <strong>binaural beat</strong> soundscape designed to guide your mind into various states of consciousness. By playing two slightly different frequencies in each ear, it creates an auditory illusion that the brain perceives as a third tone—the <strong>binaural beat</strong>. This process, known as <strong>brainwave entrainment</strong>, can influence your mental state to help you relax, focus, or even fall asleep.
+ </p>
+
+ <h3>The Stages of Sound and Their Effects</h3>
+ <p>
+ Each stage of this soundscape is carefully engineered to produce a different mental effect, building on the previous one. The combination of subtle sound effects and binaural beats work together to gently shift your focus and awareness.
+ </p>
+ <ul class="no-bullets">
+ <li>
+ <strong>Grounding:</strong> A deep, resonant hum combined with a slow beat helps quiet your mind and anchor your awareness in your body. It is ideal for starting a session of <strong>mindfulness</strong> or <strong>meditation</strong>.
+ </li>
+ <li>
+ <strong>Energetic:</strong> A slightly higher frequency hum and pulsing beat create a stimulating sensation, designed to promote a sense of vitality and awaken your nervous system.
+ </li>
+ <li>
+ <strong>Focus:</strong> The sound focuses on mid-range frequencies and beats that are associated with improved <strong>concentration</strong> and mental clarity, making it a great tool for <strong>focus</strong> during work or study.
+ </li>
+ <li>
+ <strong>Intuitive:</strong> The soundscape shifts to the alpha and theta brainwave range, which are linked to <strong>deep relaxation</strong>, <strong>creativity</strong> and accessing the subconscious mind. This is the stage for introspection and meditative states.
+ </li>
+ <li>
+ <strong>Bliss:</strong> A finale of complex, harmonic tones that create a full sound. This stage aims to evoke a sense of peacefulness, harmony, and overall <strong>well-being</strong>.
+ </li>
+ </ul>
+
+ <h3>Use Cases & Benefits</h3>
+ <p>This soundscape is a versatile tool for personal mental wellness. It can be used for:</p>
+ <ul class="bullets">
+ <li><strong>Meditation</strong> and <strong>mindfulness</strong> practices</li>
+ <li><strong>Relaxation</strong> and <strong>stress reduction</strong></li>
+ <li>Enhancing <strong>focus</strong> and <strong>concentration</strong> during work or study sessions</li>
+ <li>Boosting <strong>creativity</strong> and <strong>intuition</strong></li>
+ <li>Preparing for <strong>sleep</strong> or deep rest</li>
+ </ul>
+ <p>
+ The effectiveness of these sounds can vary by individual. Experiment with different session lengths and intensity levels to find what works best for you.
+ </p>
+ </div>
+ </section>
+ </main>
+ </div>
+ 
+ <footer class="footer-controls">
+ <div class="footer-controls-inner">
+ <button id="playPauseBtn" class="control-button">
+ <div id="playIcon" class="play-icon"></div>
+ <span id="playPauseLabel">Play</span>
+ </button>
+ <button id="nextStageBtn" class="control-button">
+ Next Stage
+ </button>
+ </div>
+ </footer>
+
+<script type="module" src="index.js"></script>
+</body>
+</html>

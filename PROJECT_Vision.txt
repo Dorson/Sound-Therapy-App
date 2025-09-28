@@ -1,0 +1,30 @@
+# Project Vision: Modern Modular Architecture
+
+## 1. Core Philosophy: Maintainability, Portability, Longevity
+
+This application is built on a modern, modular architecture that separates concerns into distinct HTML, CSS, and JavaScript files. This approach prioritizes clean code, maintainability, and scalability while preserving the core strengths of the original vision.
+
+This architecture ensures:
+*   **Maintainability & Scalability:** Separating code into dedicated files makes it easier to understand, debug, and extend the application's features.
+*   **Portability & Zero Dependencies:** The app remains a collection of static files that can be run from a local folder without a web server or build step, ensuring it works "out of the box."
+*   **Offline First:** The app is inherently functional without an internet connection.
+*   **Longevity:** By using standard, modern web technologies (ES6 Modules, standard CSS and HTML), the app avoids framework churn and is architected to work for decades to come.
+
+## 2. The Golden Rule: Separation of Concerns
+
+All code must be organized into the correct file:
+*   **`index.html`:** Contains the document structure and UI elements.
+*   **`index.css`:** Contains all styling rules for the application.
+*   **`index.js`:** Contains all application logic, acting as the main entry point using ES6 module syntax.
+
+## 3. Technology Philosophy: Native and AI-Free
+
+This application is committed to using native web technologies (JavaScript, HTML, CSS) without external libraries or frameworks to ensure maximum portability, longevity, and offline capability. To maintain focus on scientifically-grounded and curated therapeutic experiences, the integration of Artificial Intelligence (AI), including Gemini or other generative models, is strictly prohibited. The app relies on well-designed presets based on established principles of sound therapy.
+
+## 4. What This App Is NOT
+
+To maintain clarity and focus, it's essential to define what we are not building:
+
+*   It is **NOT** a Single Page Application (SPA) that relies on a specific framework (React, Vue, etc.). We use vanilla JavaScript to keep it lightweight and dependency-free.
+*   It does **NOT** have a backend or server-side component.
+*   It does **NOT** require a package manager or a mandatory build step for basic operation.

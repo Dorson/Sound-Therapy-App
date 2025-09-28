@@ -1,0 +1,6 @@
+# App Architecture Conversion TODO
+
+This file tracks the process of converting the application from a single-file architecture to a modern, modular one.
+
+- [x] Refactor the large `appController` object in `index.js` into smaller, more focused modules (e.g., `ui.js`, `soundEngine.js`, `presets.js`). Use ES6 `import`/`export` statements to manage dependencies between them. This has significantly improved maintainability.
+- [ ] Further modularize UI components and event handling to improve separation of concerns.

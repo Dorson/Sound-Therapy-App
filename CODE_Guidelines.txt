@@ -1,0 +1,48 @@
+# Project Code Guidelines
+
+## 1. Modular File Structure
+
+All code must be organized into its designated file to maintain a clean separation of concerns.
+
+*   **`index.html`**: This file is for HTML structure only. Do not embed `<script>` or `<style>` blocks with code. Link to external files instead.
+*   **`index.css`**: This file contains all CSS styling. Use CSS variables for theming.
+*   **`index.js`**: This is the main JavaScript entry point for the application. It should be written as an ES6 module and should import functionality from other specialized modules.
+
+## 2. Technology Philosophy: Native and AI-Free
+
+*   **No Build Process Required:** The project must run directly from the file system in a browser without requiring compilation, transpilation, or bundling. The `index.tsx` file is deprecated.
+*   **Modern Vanilla JavaScript is King:** The application logic should be written in modern, modular, vanilla JavaScript (ES6+). Do not introduce any client-side frameworks (like React, Vue, Svelte, etc.) or large utility libraries (like jQuery or Lodash).
+*   **No AI Integration:** To maintain focus on curated, evidence-based sound therapy, the integration of Artificial Intelligence (AI), including Gemini or other generative models, is strictly prohibited. The app must rely on its pre-defined presets.
+
+## 3. HTML Guidelines
+
+*   **Structure:** Maintain a clean, semantic HTML structure. Use tags like `<header>`, `<main>`, `<footer>`, `<section>`, and `<button>` appropriately.
+*   **Accessibility (A11y):** Ensure the application is usable by everyone. Use ARIA attributes where necessary, ensure interactive elements are keyboard-navigable, and maintain good color contrast.
+
+## 4. CSS Guidelines
+
+*   **Styling Location:** All custom CSS rules must be placed in the `index.css` file.
+*   **Custom Styles & Theming:** Use CSS variables (`:root`) for colors and core metrics to ensure consistency.
+
+## 5. JavaScript Guidelines
+
+*   **Logic Location:** All JavaScript code should originate from `index.js`, which acts as the main controller. Logic should be broken into smaller, importable modules (e.g., `soundEngine.js`, `ui.js`, `presets.js`).
+*   **Code Organization:**
+    *   Use ES6 modules (`import`/`export`) to organize code and manage dependencies.
+    *   Keep the global scope clean. Avoid attaching application logic to the `window` object.
+    *   Use clear, descriptive names for variables and functions.
+    *   Add comments to explain complex audio routing, mathematical calculations, or non-obvious logic.
+*   **State Management:** Application state should be managed within the main controller object in `index.js`.
+*   **DOM Interaction:** The main controller in `index.js` should handle event listeners, which then call update functions in the `ui.js` module. Direct DOM manipulation should be limited to the `ui.js` module.
+*   **Debounce UI Controls for Performance:** To prevent rapid, successive updates to the audio engine which can be computationally expensive, all interactive UI controls that modify sound parameters (sliders, toggles) **must** have their event listeners debounced.
+
+## 6. Audio Engine Guidelines
+
+(These guidelines remain the same as they are excellent practices regardless of file structure)
+
+*   **Optimizing Looping Sounds with Audio Buffers:** For any complex sound that loops, pre-render it into a static `AudioBuffer` once, rather than re-synthesizing it on every cycle.
+*   **Audio Node Lifecycle and Initialization:** All audio source nodes **must** have their essential parameters set to their correct initial values *before* the `.start()` method is called to prevent audio artifacts.
+*   **Preventing Audio Clipping with DynamicsCompressorNode:** Each independent, procedurally generated soundscape layer **must** be routed through its own `DynamicsCompressorNode` to prevent volume spikes and digital clipping.
+*   **Eliminating Audio Clicks with Fades:** All parameter changes on active nodes, including enabling and disabling sound layers, **must** be scheduled as a smooth ramp using `.linearRampToValueAtTime()`.
+*   **Seamless Preset Transitions with Crossfading:** When the user changes a preset while audio is playing, perform a smooth crossfade: ramp master gain down, rebuild the audio graph, and ramp master gain back up.
+*   **Reliable Play/Pause Logic:** Decouple the application's internal `isPlaying` state from the `AudioContext.state`. On **Pause**, ramp the master gain to zero but **do not** call `audioContext.suspend()`. On **Resume**, ramp the master gain back up.
