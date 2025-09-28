@@ -280,6 +280,20 @@
  color: var(--accent);
  font-weight: 600;
  }
+ .github-link {
+    text-align: center;
+    margin-top: 2rem;
+    margin-bottom: 0;
+    font-size: 0.875rem;
+}
+.github-link a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+.github-link a:hover {
+    text-decoration: underline;
+}
 
  /* --- Sticky Footer Controls --- */
  .footer-controls {
