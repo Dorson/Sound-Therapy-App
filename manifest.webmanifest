@@ -1,7 +1,7 @@
 {
-  "name": "Binaural Beat SoundScape Maker & Vibration Sound Therapy App",
-  "short_name": "SoundScape Machine",
-  "description": "App to make a soundscapes with vibrations and ambient sounds for brain entrainement. Good for relaxation, sleep, meditation, work, study, fitness, or as ambient background noise machine in the room.",
+  "name": "Sound Therapy App. Binaural Beat SoundScape Maker.",
+  "short_name": "Sound Therapy App",
+  "description": "Sound Therapy App to make a soundscapes with vibrations and ambient sounds for brain entrainement. Good for relaxation, sleep, meditation, work, study, fitness, or as ambient background noise machine in the room.",
   "start_url": ".",
   "scope": "/",
   "display": "standalone",
