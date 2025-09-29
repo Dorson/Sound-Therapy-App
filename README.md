@@ -6,9 +6,9 @@
 **A powerful, offline-first web application for creating immersive soundscapes with binaural beats and ambient sounds. Designed for relaxation, focus, meditation, and sleep enhancement.**
 
 ---
-
+<a href="https://dorson.github.io/Sound-Therapy-App/" target="_blank">
 <img width="1024" height="1024" alt="sound-therapy-app-preview-screenshot-readhead-1024" src="https://github.com/user-attachments/assets/056739ff-898c-43b5-87e3-e8840538f69b" />
-
+</a>
 
 
 ## ✨ Features
