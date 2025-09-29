@@ -7,6 +7,10 @@
 
 ---
 
+<img width="1024" height="1024" alt="sound-therapy-app-preview-screenshot-readhead-1024" src="https://github.com/user-attachments/assets/056739ff-898c-43b5-87e3-e8840538f69b" />
+
+
+
 ## ✨ Features
 
 - **🎧 Immersive Sound Engine:** Utilizes the Web Audio API to generate all sounds procedurally in real-time. No audio files are used.
