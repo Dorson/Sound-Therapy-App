@@ -201,9 +201,9 @@ const app = {
     
             if (this.state.isPlaying) {
                 engine.pause();
+                this.state.isPlaying = false;
                 uiController.updatePlayPauseButton(this);
                 if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
-                this.state.isPlaying = false;
             } else {
                 if (Object.keys(engine.nodes).length === 0) { 
                     const initialStageRecipe = this.state.STAGES[0] || this.PRESETS.none.stages[0];
@@ -216,9 +216,9 @@ const app = {
                     this.updateMediaSessionMetadata(0);
                 }
                 engine.resume();
+                this.state.isPlaying = true;
                 uiController.updatePlayPauseButton(this);
                 if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-                this.state.isPlaying = true;
             }
         } finally {
             this.state.isInteracting = false;
