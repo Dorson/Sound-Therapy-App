@@ -13,13 +13,13 @@
 "src": "icon-pwa-svg.svg",
 "sizes": "any",
 "type": "image/svg+xml",
-"purpose": "maskable"
+"purpose": "any maskable"
 },
 {
 "src": "icon-pwa-app-192.png",
 "sizes": "192x192",
 "type": "image/png",
-"purpose": "maskable"
+"purpose": "any maskable"
 }
  ],
 "screenshots": [
