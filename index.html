@@ -27,7 +27,7 @@
  <div class="panel stage-info-panel">
  <div id="stageInfo" class="stage-info" aria-live="polite">
  <div id="stageName">Idle • Ready</div>
- <div id="stageSub">Manual step or Auto-play available</div>
+ <div id="stageSub">Select a therapy to begin</div>
  <div class="progress-bar-container">
  <div id="progressBar"></div>
  </div>
@@ -42,18 +42,8 @@
  </div>
  </div>
  <div class="settings-group">
- <h2>Presets</h2>
- <label for="presetSelector">Select a Preset</label>
- <select id="presetSelector">
- <option value="none">Custom</option>
- <option value="focus">Focus</option>
- <option value="meditation">Meditation</option>
- <option value="relaxation">Relaxation</option>
- <option value="deep_sleep">Deep Sleep</option>
- <option value="rem_sleep">REM Sleep Cycle</option>
- <option value="energetic">Energetic</option>
- <option value="bliss">Bliss</option>
- </select>
+ <h2>Sound Therapy Options</h2>
+ <button id="openPresetDialogBtn" class="settings-button preset-selector-button">&#9775; Select Sound Therapy &#9776; </button>
  </div>
 
  <h2>Settings</h2>
@@ -316,6 +306,22 @@
          </div>
      </div>
  </div>
+
+ <!-- Sound Therapy Options Modal -->
+ <div id="presetDialogBackdrop" class="modal-backdrop hidden"></div>
+ <div id="presetDialog" class="modal-container wide-modal hidden" role="dialog" aria-modal="true" aria-labelledby="presetDialogTitle">
+     <div class="modal-header sticky-header">
+         <h2 id="presetDialogTitle">Sound Therapy Options</h2>
+         <button id="presetDialogCloseBtn" class="modal-close-btn" aria-label="Close dialog">&times;</button>
+     </div>
+     <div id="presetCardContainer" class="modal-content preset-cards">
+         <!-- Preset cards will be dynamically injected here -->
+     </div>
+     <div class="modal-footer sticky-footer">
+         <button id="presetDialogExitBtn" class="settings-button install-app-button">Close</button>
+     </div>
+ </div>
+
 
 <script type="module" src="index.js"></script>
 </body>

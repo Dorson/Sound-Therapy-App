@@ -11,6 +11,7 @@ const app = {
     // --- STATE ---
     state: {
         STAGES: PRESETS.none.stages,
+        activePreset: 'none',
         currentStage: -1,
         autoplayInterval: null,
         sessionElapsedTime: 0,
@@ -66,11 +67,11 @@ const app = {
         this.ui.stageName = document.getElementById('stageName');
         this.ui.stageSub = document.getElementById('stageSub');
         this.ui.progressBar = document.getElementById('progressBar');
-        this.ui.presetSelector = document.getElementById('presetSelector');
+        this.ui.openPresetDialogBtn = document.getElementById('openPresetDialogBtn');
         this.ui.installAppBtn = document.getElementById('installAppBtn');
         this.ui.installInstructions = document.getElementById('install-instructions');
         
-        // Modal UI Elements
+        // Save Modal UI Elements
         this.ui.saveModal = document.getElementById('saveModal');
         this.ui.saveModalBackdrop = document.getElementById('saveModalBackdrop');
         this.ui.saveModalCloseBtn = document.getElementById('saveModalCloseBtn');
@@ -85,6 +86,13 @@ const app = {
         this.ui.progressTimeText = document.getElementById('progressTimeText');
         this.ui.cancelRenderBtn = document.getElementById('cancelRenderBtn');
 
+        // Preset Dialog UI Elements
+        this.ui.presetDialog = document.getElementById('presetDialog');
+        this.ui.presetDialogBackdrop = document.getElementById('presetDialogBackdrop');
+        this.ui.presetDialogCloseBtn = document.getElementById('presetDialogCloseBtn');
+        this.ui.presetDialogExitBtn = document.getElementById('presetDialogExitBtn');
+        this.ui.presetCardContainer = document.getElementById('presetCardContainer');
+
         this.toggleConfigs.forEach(config => {
             this.ui[config.optionId] = document.getElementById(config.optionId);
             this.ui[config.chkId] = document.getElementById(config.chkId);
@@ -92,6 +100,7 @@ const app = {
 
         uiController.checkPWA(this);
         this.checkSupportedFormats();
+        this.populatePresetDialog();
 
         // Wire up event listeners
         this.ui.playPauseBtn.addEventListener('click', this.handlePlayPause.bind(this));
@@ -99,7 +108,6 @@ const app = {
         this.ui.lengthSlider.addEventListener('input', this.debounce(e => this.ui.lenLabel.textContent = e.target.value, 50));
         this.ui.intensitySlider.addEventListener('input', this.debounce((e) => this.handleIntensityChange(e.target.value), 50));
         this.ui.masterVolumeSlider.addEventListener('input', this.debounce((e) => this.handleMasterVolumeChange(e.target.value), 50));
-        this.ui.presetSelector.addEventListener('change', this.debounce(this.handlePresetChange.bind(this), 100));
         
         this.toggleConfigs.forEach(config => {
             this.ui[config.optionId].addEventListener('click', this.debounce(() => {
@@ -118,11 +126,44 @@ const app = {
             this.state.renderProcess.cancel = true;
             this.uiController.updateRenderProgress(this, this.ui.renderProgressBar.style.width.replace('%',''), 'Cancellation requested. Finishing render step...', '');
         });
+
+        // Preset Dialog Listeners
+        this.ui.openPresetDialogBtn.addEventListener('click', () => this.uiController.showPresetDialog(this));
+        this.ui.presetDialogCloseBtn.addEventListener('click', () => this.uiController.hidePresetDialog(this));
+        this.ui.presetDialogExitBtn.addEventListener('click', () => this.uiController.hidePresetDialog(this));
+        this.ui.presetDialogBackdrop.addEventListener('click', () => this.uiController.hidePresetDialog(this));
         
         uiController.initUIState(this);
         this.setupMediaSessionHandlers();
     },
 
+    populatePresetDialog() {
+        const container = this.ui.presetCardContainer;
+        container.innerHTML = '';
+        for (const [key, preset] of Object.entries(this.PRESETS)) {
+            if (key === 'none') continue;
+    
+            const card = document.createElement('div');
+            card.className = 'preset-card';
+            card.dataset.presetName = key;
+    
+            const desc = preset.description;
+            // Use a single paragraph with <br> tags for a more compact layout
+            card.innerHTML = `
+                <h3>${desc.title}</h3>
+                <p class="details">
+                    ${desc.shortDesc}<br><br>
+                    <strong>Effect:</strong> ${desc.effect}<br>
+                    <strong>Use Cases:</strong> ${desc.useCases}<br>
+                    <strong>Frequency:</strong> ${desc.freqRange}
+                </p>
+            `;
+    
+            card.addEventListener('click', () => this.handlePresetCardClick(key));
+            container.appendChild(card);
+        }
+    },
+    
     // --- Media Session API & PWA ---
     setupMediaSessionHandlers() {
        if (!('mediaSession' in navigator)) return;
@@ -140,8 +181,7 @@ const app = {
        }
        
        const stage = this.state.STAGES[idx];
-       const presetSelector = this.ui.presetSelector;
-       const presetName = presetSelector.options[presetSelector.selectedIndex].text;
+       const presetName = this.state.activePreset !== 'none' ? this.PRESETS[this.state.activePreset].description.title : 'Custom Session';
        
        const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 496"><circle cx="252.1" cy="246.6" r="241.2" fill="#a2008a"/><ellipse cx="176.3" cy="177" fill="#ebff3f" rx="70.6" ry="66.9"/><path fill="#ebff3f" d="M302 183h97v37h-97z"/><path fill="#ebff3f" stroke="#ebff3f" stroke-width="25.9" d="M111 308c72 90 167 115 252 69"/></svg>`;
        const iconUrl = `data:image/svg+xml;base64,${btoa(iconSvg)}`;
@@ -224,6 +264,34 @@ const app = {
             this.state.isInteracting = false;
         }
     },
+
+    async handlePresetCardClick(presetName) {
+        if (this.state.isInteracting) return;
+        this.state.isInteracting = true;
+        try {
+            const preset = this.PRESETS[presetName];
+            if (!preset) return;
+    
+            this.state.activePreset = presetName;
+            this.state.STAGES = preset.stages;
+            this.uiController.updatePresetUI(this, preset);
+    
+            if (this.state.isPlaying) {
+                await this.soundEngine.transitionToPreset(preset);
+            } else {
+                // If paused or idle, stop the old engine completely and start the new one
+                if (this.soundEngine.ctx) {
+                    await this.soundEngine.stop(); // This clears nodes and closes the context
+                }
+                // This will start playback with the new preset's settings
+                await this.handlePlayPause(); 
+            }
+            
+            this.uiController.hidePresetDialog(this);
+        } finally {
+            this.state.isInteracting = false;
+        }
+    },
    
     async goToNextStage() {
        if (this.state.isInteracting) return;
@@ -287,37 +355,20 @@ const app = {
         if (this.soundEngine.ctx) {
             this.soundEngine.setIntensity(parseFloat(value));
         }
+        if (this.state.activePreset !== 'none') {
+            this.state.activePreset = 'none';
+            this.uiController.updateUIStage(this);
+        }
     },
    
     handleToggle(stateKey, button, checkmark, nodeKey) {
         this.state[stateKey] = !this.state[stateKey];
         uiController.toggleCheckmark(button, checkmark, this.state[stateKey]);
         this.soundEngine.toggleEffect(nodeKey, this.state[stateKey]);
-    },
-   
-    async handlePresetChange(e) {
-       if (this.state.isInteracting) return;
-       this.state.isInteracting = true;
-       try {
-           const presetName = e.target.value;
-           const preset = this.PRESETS[presetName];
-           if (!preset) return;
-   
-           this.state.STAGES = preset.stages;
-           uiController.updatePresetUI(this, preset);
-   
-           if (this.state.isPlaying) {
-               await this.soundEngine.transitionToPreset(preset);
-           } else {
-               if (this.soundEngine.ctx && this.soundEngine.ctx.state !== 'closed') {
-                   await this.soundEngine.stop();
-               } else {
-                   uiController.updateUIStage(this);
-               }
-           }
-       } finally {
-           this.state.isInteracting = false;
-       }
+        if (this.state.activePreset !== 'none') {
+            this.state.activePreset = 'none';
+            this.uiController.updateUIStage(this);
+        }
     },
     
     _concatenateAudioBuffers(buffers) {
@@ -428,7 +479,8 @@ const app = {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.style.display = 'none'; a.href = url;
-            a.download = `binaural-soundscape-${this.ui.presetSelector.value}-${this.ui.lengthSlider.value}min.${extension}`;
+            const presetNameForFile = this.state.activePreset !== 'none' ? this.state.activePreset : 'custom';
+            a.download = `binaural-soundscape-${presetNameForFile}-${this.ui.lengthSlider.value}min.${extension}`;
             document.body.appendChild(a); a.click();
             window.URL.revokeObjectURL(url); a.remove();
             

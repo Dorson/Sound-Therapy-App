@@ -5,10 +5,15 @@ export function updateUIStage(app) {
     const idx = app.state.currentStage;
     if (idx < 0) {
         app.ui.stageName.textContent = 'Idle • Ready';
-        app.ui.stageSub.textContent = 'Manual step or Auto-play available';
+        app.ui.stageSub.textContent = 'Select a therapy to begin';
         app.ui.progressBar.style.width = '0%';
     } else {
-        app.ui.stageName.textContent = app.state.STAGES[idx].name;
+        const presetKey = app.state.activePreset;
+        const presetName = (presetKey !== 'none' && app.PRESETS[presetKey])
+            ? app.PRESETS[presetKey].description.title 
+            : 'Custom';
+
+        app.ui.stageName.textContent = `${presetName} • ${app.state.STAGES[idx].name}`;
         app.ui.stageSub.textContent = `Stage ${idx + 1} of ${app.state.STAGES.length}`;
         const progress = ((idx + 1) / app.state.STAGES.length) * 100;
         app.ui.progressBar.style.width = `${progress}%`;
@@ -39,6 +44,7 @@ export function initUIState(app) {
 }
 
 export function updatePresetUI(app, preset) {
+    app.state.activePreset = Object.keys(app.PRESETS).find(key => app.PRESETS[key] === preset);
     const toggles = preset.toggles;
     app.toggleConfigs.forEach(config => {
        app.state[config.stateKey] = !!toggles[config.nodeKey];
@@ -63,7 +69,7 @@ export function checkPWA(app) {
     }
 }
 
-// --- Save Modal Functions ---
+// --- Modal Functions ---
 
 export function updateFormatInfo(app) {
     const selector = app.ui.formatSelector;
@@ -91,6 +97,16 @@ export function hideSaveModal(app) {
     if (app.state.isRendering) return; // Prevent closing while rendering
     app.ui.saveModal.classList.add('hidden');
     app.ui.saveModalBackdrop.classList.add('hidden');
+}
+
+export function showPresetDialog(app) {
+    app.ui.presetDialog.classList.remove('hidden');
+    app.ui.presetDialogBackdrop.classList.remove('hidden');
+}
+
+export function hidePresetDialog(app) {
+    app.ui.presetDialog.classList.add('hidden');
+    app.ui.presetDialogBackdrop.classList.add('hidden');
 }
 
 export function setRenderMode(app, isRendering) {
