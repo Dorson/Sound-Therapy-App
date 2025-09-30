@@ -6,7 +6,7 @@ All code must be organized into its designated file to maintain a clean separati
 
 *   **`index.html`**: This file is for HTML structure only. Do not embed `<script>` or `<style>` blocks with code. Link to external files instead.
 *   **`index.css`**: This file contains all CSS styling. Use CSS variables for theming.
-*   **`index.js`**: This is the main JavaScript entry point for the application. It should be written as an ES6 module and should import functionality from other specialized modules.
+*   **`index.js`**: This is the main JavaScript entry point for the application. It should act as the "controller," defining application logic and orchestrating the other modules.
 
 ## 2. Technology Philosophy: Native and AI-Free
 
@@ -26,14 +26,14 @@ All code must be organized into its designated file to maintain a clean separati
 
 ## 5. JavaScript Guidelines
 
-*   **Logic Location:** All JavaScript code should originate from `index.js`, which acts as the main controller. Logic should be broken into smaller, importable modules (e.g., `soundEngine.js`, `ui.js`, `presets.js`).
+*   **Logic Location:** All JavaScript code should originate from `index.js`, which acts as the main controller. Logic should be broken into smaller, importable modules (e.g., `soundEngine.js`, `ui.js`, `presets.js`, `state.js`).
 *   **Code Organization:**
     *   Use ES6 modules (`import`/`export`) to organize code and manage dependencies.
     *   Keep the global scope clean. Avoid attaching application logic to the `window` object.
     *   Use clear, descriptive names for variables and functions.
     *   Add comments to explain complex audio routing, mathematical calculations, or non-obvious logic.
-*   **State Management:** Application state should be managed within the main controller object in `index.js`.
-*   **DOM Interaction:** The main controller in `index.js` should handle event listeners, which then call update functions in the `ui.js` module. Direct DOM manipulation should be limited to the `ui.js` module.
+*   **State Management:** Application state should be managed within a dedicated, centralized state module (`state.js`). This module acts as the single source of truth and is imported by other modules that need to read state. The controller (`index.js`) is responsible for mutations.
+*   **DOM Interaction:** The UI module (`ui.js`) is solely responsible for all DOM queries, event listener setup, and UI updates. The main controller in `index.js` provides handler functions to the UI module during initialization.
 *   **Debounce UI Controls for Performance:** To prevent rapid, successive updates to the audio engine which can be computationally expensive, all interactive UI controls that modify sound parameters (sliders, toggles) **must** have their event listeners debounced.
 
 ## 6. Audio Engine Guidelines

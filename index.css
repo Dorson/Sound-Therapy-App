@@ -340,6 +340,7 @@
  transform: scale(0.95);
  }
  #playPauseBtn {
+ flex-basis: 40%;
  gap: 1rem;
  background-color: var(--accent-secondary);
  color: white;
@@ -347,13 +348,12 @@
  #playPauseBtn:hover {
  background-color: hsl(27, 69%, 35%);
  }
- #nextStageBtn {
- gap: 0.5rem;
+ #prevStageBtn, #nextStageBtn {
  background-color: transparent;
  border: 0.125rem solid var(--accent);
  color: var(--accent);
  }
- #nextStageBtn:hover {
+ #prevStageBtn:hover, #nextStageBtn:hover {
  background-color: rgba(255, 255, 255, 0.1);
  }
  
@@ -692,9 +692,4 @@
     font-size: 0.9rem;
     line-height: 1.3; /* Tighter line-height */
     margin: 0; /* Removed margin */
-}
-
-.preset-card .details strong {
-    color: var(--accent-secondary);
-    font-weight: 600;
 }

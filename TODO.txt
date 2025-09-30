@@ -2,5 +2,6 @@
 
 This file tracks the process of converting the application from a single-file architecture to a modern, modular one.
 
-- [x] Refactor the large `appController` object in `index.js` into smaller, more focused modules (e.g., `ui.js`, `soundEngine.js`, `presets.js`). Use ES6 `import`/`export` statements to manage dependencies between them. This has significantly improved maintainability.
-- [ ] Further modularize UI components and event handling to improve separation of concerns.
+- [ ] Implement more robust error handling in the sound engine to prevent audio context failures from crashing the app and ensure graceful degradation.
+- [ ] Review and enhance PWA offline capabilities by creating a dedicated fallback, and fail safe service worker to ensure all assets are cached correctly for maximum resilience. if the web workers ar enot supported , we should fall back to supportedmethods.
+- [ ] Create a simple, custom event bus to fully decouple modules and eliminate the need for passing controller callbacks.
