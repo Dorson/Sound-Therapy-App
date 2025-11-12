@@ -5,5 +5,30 @@
 - Research and implement more advanced stereo panning and spatialization techniques to create a more immersive 3D sound field.
 - Explore adding dynamic environment simulation (e.g., reverb size changing based on stage) to enhance the sense of space.
 
+## Phase 6: Psychoacoustic Expansion - "DMT Release Sound Therapy"
 
-we need to enhance the medicinal and psycho-acoustic usefulness of our app by 1000X we need a new preset for the "DMT Release Sound Therapy" that preset shall be based on scientific evidence of brain wave scans that happen during DMT release in the brain or the DMT administration from exogenous sources. we need to forumulate concrete action todo steps for how to best implement this new preset into the code base so that it is very effective and useful to the listeners of the app.
+This phase focuses on creating a new, advanced preset based on neuroscientific findings related to DMT experiences. The goal is to simulate the dynamic shifts in brainwave activity (Alpha suppression, Theta/Delta/Gamma increase) for therapeutic and explorative purposes.
+
+### Step 1: Research & Parameter Mapping
+- **Action:** Analyze scientific literature on EEG readings during endogenous/exogenous DMT states.
+- **Goal:** Map key findings (e.g., alpha power drop, theta/gamma power surge, "carrier hum") to the app's available sound parameters (`base`, `beat`, `padCut`, effect toggles, etc.).
+
+### Step 2: Sound Design & Wavetable Creation
+- **Action:** Design a new, unique wavetable for the carrier oscillator used in this preset. The sound should be less "clean" than the current sine-based one, perhaps with more complex, slightly dissonant harmonics to represent the "vibrational" aspect of the experience.
+- **Goal:** Create a `dmtCarrierWavetable` in `wavetables.js` that can be loaded by the `WaveformCoreProcessor`.
+
+### Step 3: Multi-Stage Preset Implementation
+- **Action:** Create a new preset object named `dmt_release` in `presets.js`. This preset will have multiple stages to model the typical progression of the experience.
+- **Goal:** Define at least 4 stages:
+    1.  **Onset:** Simulates the initial "rush" with a rising carrier frequency and intense vibrational effects. Utilize the `resonantPulse` effect.
+    2.  **Immersion:** Characterized by suppressed Alpha waves and a deep Theta/Delta state. Soundscape should be spacious and atmospheric.
+    3.  **Peak:** Introduce high-frequency Gamma entrainment (40Hz+ beat) layered over the deep Theta state. The soundscape should be complex, intricate, and dynamic.
+    4.  **Re-entry:** A gradual return to a calm, integrative Alpha state. Frequencies descend and complexity reduces.
+
+### Step 4: UI & Documentation Update
+- **Action:** Add the preset description to `presets.js`, ensuring it has a clear, responsible explanation and a strong cautionary note about its intensity. The UI will automatically pick it up from there.
+- **Goal:** Ensure the user understands what the preset is, how to use it safely, and what to expect.
+
+### Step 5: Testing & Refinement
+- **Action:** Conduct thorough listening tests to balance the intensity of the effects.
+- **Goal:** Ensure the preset is powerful but not jarring or uncomfortable. Adjust gain levels, ramp times, and frequencies for a smooth, effective, and safe psychoacoustic journey.

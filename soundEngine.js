@@ -330,10 +330,12 @@ export async function stop() {
     if (nodes.bowl) nodes.bowl.stopLoop();
     state.isPlaying = false;
 
-    try {
-        masterGain.gain.cancelScheduledValues(ctx.currentTime);
-        _rampParam(masterGain.gain, config.MIN_GAIN, config.FADE_DURATION_S, ctx.currentTime);
-    } catch (e) { console.error("Error stopping gain ramp:", e); }
+    if (masterGain && masterGain.gain) {
+        try {
+            masterGain.gain.cancelScheduledValues(ctx.currentTime);
+            _rampParam(masterGain.gain, config.MIN_GAIN, config.FADE_DURATION_S, ctx.currentTime);
+        } catch (e) { console.error("Error stopping gain ramp:", e); }
+    }
 
     return new Promise(resolve => {
         setTimeout(() => {
@@ -1033,7 +1035,7 @@ async function _createSingingBowl(audioCtx, globalTimeOffset = 0) {
         if (schedulerTimeoutId) clearTimeout(schedulerTimeoutId);
         schedulerTimeoutId = null;
         envelope.gain.cancelScheduledValues(audioCtx.currentTime);
-        _rampParam(envelope.gain, 0, 0.5, audioCtx.currentTime);
+        _rampParam(envelope.gain, 0, 0.5, ctx.currentTime);
     };
 
     return { output: limiter, gainNode: mainGain, startLoop, stopLoop, envelope };
