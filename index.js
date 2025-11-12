@@ -338,6 +338,16 @@ const controller = {
         soundEngine.toggleEffect(nodeKey, state[stateKey]);
     },
     
+    handleReverbSpaceChange(spaceName) {
+        if (state.isInteracting) return;
+        state.activeReverbSpace = spaceName;
+        if (state.activePreset !== 'none') {
+            state.activePreset = 'none';
+        }
+        ui.syncUIWithState();
+        soundEngine.setReverbSpace(spaceName);
+    },
+
     handleStageChange({ stageIndex }) {
         // The soundEngine already updated state.currentStage
         ui.syncUIWithState();

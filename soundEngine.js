@@ -1,7 +1,7 @@
-import { state } from './state.js';
-import { config, toggleConfigs } from './presets.js';
+import { state, REVERB_SPACES } from './state.js';
+import { PRESETS, config, toggleConfigs } from './presets.js';
 import { emit } from './eventBus.js';
-import { getSingingBowlWavetable } from './wavetables.js';
+import { getSingingBowlWavetable, getDmtCarrierWavetable } from './wavetables.js';
 
 // This string contains the code for our custom AudioWorkletProcessors.
 // It's defined here to avoid needing a separate file, which simplifies local usage (file://).
@@ -107,18 +107,26 @@ registerProcessor('modulator-processor', ModulatorProcessor);
 // --- Processor 3: Waveform Core Synthesizer ---
 class WaveformCoreProcessor extends AudioWorkletProcessor {
     constructor() {
-        super();
+        super({ numberOfInputs: 1 });
         this.phase = 0;
         this.wavetable = new Float32Array([0, 0]); // Default silent wavetable
+        this.wavetable2 = new Float32Array([0, 0]); // Second wavetable for morphing
         
         // Envelope state
         this.envelopeState = 'idle'; // idle, attack, decay, sustain, release
         this.envelopeValue = 0;
         this.envelopeTime = 0;
 
+        // Filter state per channel (assuming stereo max, but we process mono and copy)
+        this._z1 = [0, 0];
+        this._z2 = [0, 0];
+
         this.port.onmessage = (event) => {
             if (event.data.wavetable) {
                 this.wavetable = event.data.wavetable;
+            }
+            if (event.data.wavetable2) {
+                this.wavetable2 = event.data.wavetable2;
             }
         };
     }
@@ -131,13 +139,22 @@ class WaveformCoreProcessor extends AudioWorkletProcessor {
             { name: 'decay', defaultValue: 0.1, automationRate: 'k-rate' },
             { name: 'sustain', defaultValue: 0.5, automationRate: 'k-rate' },
             { name: 'release', defaultValue: 0.2, automationRate: 'k-rate' },
-            { name: 'drive', defaultValue: 0, automationRate: 'a-rate' }
+            { name: 'drive', defaultValue: 0, automationRate: 'a-rate' },
+            { name: 'morph', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+            { name: 'fmMod', defaultValue: 0, automationRate: 'a-rate' },
+            // Filter Parameters
+            // 0: LPF, 1: HPF, 2: BPF, 3: Notch
+            { name: 'filterType', defaultValue: 0, minValue: 0, maxValue: 3, automationRate: 'k-rate'},
+            { name: 'filterCutoff', defaultValue: 20000, minValue: 20, maxValue: 20000, automationRate: 'a-rate' },
+            { name: 'filterQ', defaultValue: 0.707, minValue: 0.0001, maxValue: 20, automationRate: 'a-rate' }
         ];
     }
     
     process(inputs, outputs, parameters) {
         const output = outputs[0];
         const channel = output[0];
+        const modulatorInput = inputs[0];
+        const modulatorChannel = modulatorInput.length > 0 ? modulatorInput[0] : null;
         
         const frequency = parameters.frequency;
         const gate = parameters.gate[0];
@@ -146,6 +163,13 @@ class WaveformCoreProcessor extends AudioWorkletProcessor {
         const sustain = parameters.sustain[0];
         const release = parameters.release[0];
         const drive = parameters.drive;
+        const morph = parameters.morph;
+        const fmMod = parameters.fmMod;
+        
+        // Filter parameters
+        const filterType = parameters.filterType[0];
+        const filterCutoff = parameters.filterCutoff;
+        const filterQ = parameters.filterQ;
 
         const invSampleRate = 1.0 / sampleRate;
 
@@ -191,19 +215,74 @@ class WaveformCoreProcessor extends AudioWorkletProcessor {
             }
 
             // --- Oscillator Logic ---
-            const freq = frequency.length > 1 ? frequency[i] : frequency[0];
-            const readIndex = this.phase * (this.wavetable.length - 1);
-            const index1 = Math.floor(readIndex);
-            const index2 = (index1 + 1);
-            const fraction = readIndex - index1;
+            const baseFreq = frequency.length > 1 ? frequency[i] : frequency[0];
+            const fmDepth = fmMod.length > 1 ? fmMod[i] : fmMod[0];
+            const modulatorValue = modulatorChannel ? modulatorChannel[i] : 0;
+            const finalFreq = baseFreq + (modulatorValue * fmDepth);
             
-            // Linear interpolation
-            const s1 = this.wavetable[index1];
-            const s2 = this.wavetable[index2] || s1; // handle edge case
-            let sample = s1 + (s2 - s1) * fraction;
+            const m = morph.length > 1 ? morph[i] : morph[0];
 
-            this.phase += freq * invSampleRate;
+            // Wavetable 1 lookup (using linear interpolation)
+            const readIndex1 = this.phase * (this.wavetable.length - 1);
+            const index1_1 = Math.floor(readIndex1);
+            const fraction1 = readIndex1 - index1_1;
+            const s1_1 = this.wavetable[index1_1];
+            const s1_2 = this.wavetable[index1_1 + 1] || s1_1;
+            const sample1 = s1_1 + (s1_2 - s1_1) * fraction1;
+
+            // Wavetable 2 lookup
+            const readIndex2 = this.phase * (this.wavetable2.length - 1);
+            const index2_1 = Math.floor(readIndex2);
+            const fraction2 = readIndex2 - index2_1;
+            const s2_1 = this.wavetable2[index2_1];
+            const s2_2 = this.wavetable2[index2_1 + 1] || s2_1;
+            const sample2 = s2_1 + (s2_2 - s2_1) * fraction2;
+
+            // Morph (crossfade) between the two samples
+            let sample = sample1 * (1.0 - m) + sample2 * m;
+
+            this.phase += finalFreq * invSampleRate;
             if (this.phase >= 1.0) this.phase -= 1.0;
+            if (this.phase < 0) this.phase += 1.0;
+
+            // --- Biquad Filter Logic ---
+            const cutoff = filterCutoff.length > 1 ? filterCutoff[i] : filterCutoff[0];
+            const q = filterQ.length > 1 ? filterQ[i] : filterQ[0];
+
+            const w0 = 2 * Math.PI * cutoff / sampleRate;
+            const alpha = Math.sin(w0) / (2 * q);
+            const cosw0 = Math.cos(w0);
+
+            let b0, b1, b2, a0, a1, a2;
+            switch (Math.round(filterType)) {
+                case 1: // HPF
+                    b0 = (1 + cosw0) / 2; b1 = -(1 + cosw0); b2 = (1 + cosw0) / 2;
+                    a0 = 1 + alpha; a1 = -2 * cosw0; a2 = 1 - alpha;
+                    break;
+                case 2: // BPF
+                    b0 = alpha; b1 = 0; b2 = -alpha;
+                    a0 = 1 + alpha; a1 = -2 * cosw0; a2 = 1 - alpha;
+                    break;
+                case 3: // Notch
+                    b0 = 1; b1 = -2 * cosw0; b2 = 1;
+                    a0 = 1 + alpha; a1 = -2 * cosw0; a2 = 1 - alpha;
+                    break;
+                default: // 0: LPF
+                    b0 = (1 - cosw0) / 2; b1 = 1 - cosw0; b2 = (1 - cosw0) / 2;
+                    a0 = 1 + alpha; a1 = -2 * cosw0; a2 = 1 - alpha;
+                    break;
+            }
+
+            const a0_inv = 1 / a0;
+            const b0_norm = b0 * a0_inv, b1_norm = b1 * a0_inv, b2_norm = b2 * a0_inv;
+            const a1_norm = a1 * a0_inv, a2_norm = a2 * a0_inv;
+            
+            const input = sample;
+            const filteredSample = b0_norm * input + this._z1[0];
+            this._z1[0] = b1_norm * input - a1_norm * filteredSample + this._z2[0];
+            this._z2[0] = b2_norm * input - a2_norm * filteredSample;
+            sample = filteredSample;
+
 
             // --- Waveshaping & Output ---
             const drv = drive.length > 1 ? drive[i] : drive[0];
@@ -233,8 +312,10 @@ export let nodes = {};
 // This is cleared whenever the AudioContext is recreated.
 let memoizedBuffers = new Map();
 let carrierWavetable = null;
+let dmtWavetable = null;
 let isoWavetable = null;
 let resonantPulseWavetable = null;
+let sineWavetable = null;
 
 // Manage worklet loading state per AudioContext instance to prevent race conditions.
 const workletReadyPromises = new WeakMap();
@@ -305,13 +386,13 @@ export async function resumeSuspendedContext() {
     }
 }
 
-export async function initAudio(initialStageRecipe, activeToggles, initialIntensity) {
+export async function initAudio(initialStageRecipe, activeToggles, initialIntensity, activePresetName) {
     if (!ctx) await createContext();
     masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0, ctx.currentTime);
     masterGain.connect(ctx.destination);
     
-    nodes = await _createAudioGraph(ctx, masterGain, activeToggles, initialIntensity);
+    nodes = await _createAudioGraph(ctx, masterGain, activeToggles, initialIntensity, 0, activePresetName);
     effectsGain = nodes.effectsGain;
     setStage(initialStageRecipe, nodes, ctx.currentTime, 0.1);
 }
@@ -445,6 +526,12 @@ export function toggleEffect(effectKey, isEnabled) {
     }
 }
 
+export function setReverbSpace(spaceName) {
+    if (ctx && nodes.reverb && nodes.reverb.setSpace) {
+        nodes.reverb.setSpace(spaceName);
+    }
+}
+
 export function setStage(stageRecipe, nodeSet, scheduleTime, ramp) {
     const audioContext = nodeSet.carrier?.leftOsc?.context;
     if (!audioContext || !nodeSet.carrier) return;
@@ -505,8 +592,10 @@ export async function createContext() {
     const context = new (window.AudioContext || window.webkitAudioContext)();
     memoizedBuffers.clear();
     carrierWavetable = null;
+    dmtWavetable = null;
     isoWavetable = null;
     resonantPulseWavetable = null;
+    sineWavetable = null;
     ctx = context;
     ctx.addEventListener('statechange', handleContextStateChange);
     handleContextStateChange(); // Set initial state
@@ -636,33 +725,128 @@ function _createLimiterCompressor(audioCtx) {
     return compressor;
 }
 
-function _createReverb(audioCtx) {
-    const { REVERB_DURATION_S, REVERB_DECAY } = config.engine;
-    const rate = audioCtx.sampleRate, len = Math.floor(REVERB_DURATION_S * rate), buf = audioCtx.createBuffer(2, len, rate);
-    for(let ch = 0; ch < 2; ch++) {
-        const d = buf.getChannelData(ch);
-        for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - (i / rate) / REVERB_DURATION_S, REVERB_DECAY);
+function _createImpulseResponse(audioCtx, spaceName) {
+    const rate = audioCtx.sampleRate;
+    let duration, decay, predelay = 0, reverse = false, echoes = [];
+
+    switch (spaceName) {
+        case 'hall':
+            duration = 1.8; decay = 1.5;
+            break;
+        case 'cathedral':
+            duration = 4.0; decay = 2.5; predelay = 0.02;
+            break;
+        case 'cave':
+            duration = 1.5; decay = 2.0;
+            echoes = [{ delay: 0.1, gain: 0.6 }, { delay: 0.25, gain: 0.4 }, { delay: 0.45, gain: 0.25 }];
+            break;
+        case 'synthetic':
+        default:
+            duration = 3.0; decay = 2.0;
+            break;
     }
-    const conv = audioCtx.createConvolver(); conv.buffer = buf; return conv;
+    
+    const len = Math.floor(duration * rate);
+    const buf = audioCtx.createBuffer(2, len, rate);
+    const predelaySamples = Math.floor(predelay * rate);
+
+    for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        // Generate noise
+        for (let i = 0; i < len - predelaySamples; i++) {
+            const sampleIdx = reverse ? len - 1 - i : i;
+            d[sampleIdx + predelaySamples] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        }
+        // Add echoes
+        echoes.forEach(echo => {
+            const echoDelaySamples = Math.floor(echo.delay * rate);
+            for (let i = 0; i < len - predelaySamples - echoDelaySamples; i++) {
+                d[i + predelaySamples + echoDelaySamples] += d[i + predelaySamples] * echo.gain;
+            }
+        });
+    }
+    return buf;
 }
 
-async function _createCarrierPair(audioCtx, globalTimeOffset = 0) {
+
+async function _createReverbUnit(audioCtx) {
+    let activeConvolver = 'A';
+    const input = audioCtx.createGain();
+    const output = audioCtx.createGain();
+
+    const convolverA = audioCtx.createConvolver();
+    const gainA = audioCtx.createGain();
+    gainA.gain.value = 1.0;
+
+    const convolverB = audioCtx.createConvolver();
+    const gainB = audioCtx.createGain();
+    gainB.gain.value = 0.0;
+
+    input.connect(convolverA).connect(gainA).connect(output);
+    input.connect(convolverB).connect(gainB).connect(output);
+
+    // Pre-generate and cache the default reverb
+    const initialSpaceName = state.activeReverbSpace;
+    const initialBuffer = _createImpulseResponse(audioCtx, initialSpaceName);
+    memoizedBuffers.set(`reverb-${initialSpaceName}`, initialBuffer);
+    convolverA.buffer = initialBuffer;
+
+    const setSpace = (spaceName) => {
+        const now = audioCtx.currentTime;
+        const rampTime = 0.5;
+        const [fadeInNode, fadeOutNode] = activeConvolver === 'A' ? [convolverB, convolverA] : [convolverA, convolverB];
+        const [fadeInGain, fadeOutGain] = activeConvolver === 'A' ? [gainB, gainA] : [gainA, gainB];
+        
+        let irBuffer = memoizedBuffers.get(`reverb-${spaceName}`);
+        if (!irBuffer) {
+            irBuffer = _createImpulseResponse(audioCtx, spaceName);
+            memoizedBuffers.set(`reverb-${spaceName}`, irBuffer);
+        }
+
+        fadeInNode.buffer = irBuffer;
+        _rampParam(fadeOutGain.gain, 0, rampTime, now);
+        _rampParam(fadeInGain.gain, 1, rampTime, now);
+
+        activeConvolver = (activeConvolver === 'A') ? 'B' : 'A';
+    };
+
+    return { input, output, setSpace };
+}
+
+async function _createCarrierPair(audioCtx, globalTimeOffset = 0, activePresetName = 'full_spectrum') {
     // Ensure worklet is ready before proceeding. This will throw if it fails.
     await _ensureWorkletReady(audioCtx);
     
-    if (!carrierWavetable) {
-        carrierWavetable = _createHarmonicSineWavetable(4096, [
-            { amp: 1.0, freq: 1 }, // Fundamental
-            { amp: 0.15, freq: 2 }, // Octave
-            { amp: 0.1, freq: 3 }, // Fifth
-        ]);
+    const presetOptions = PRESETS[activePresetName] || PRESETS.full_spectrum;
+    let activeWavetable;
+
+    if (presetOptions.carrier === 'dmt') {
+        if (!dmtWavetable) {
+            dmtWavetable = await getDmtCarrierWavetable();
+        }
+        activeWavetable = dmtWavetable;
+    } else {
+        if (!carrierWavetable) {
+            carrierWavetable = _createHarmonicSineWavetable(4096, [
+                { amp: 1.0, freq: 1 }, // Fundamental
+                { amp: 0.15, freq: 2 }, // Octave
+                { amp: 0.1, freq: 3 }, // Fifth
+            ]);
+        }
+        activeWavetable = carrierWavetable;
     }
 
-    const { CARRIER_VIBRATO_FREQ_HZ, CARRIER_VIBRATO_GAIN, CARRIER_PAN_LEFT, CARRIER_PAN_RIGHT, CARRIER_GAIN } = config.engine;
+    // Create the second wavetable for morphing (a pure sine wave)
+    if (!sineWavetable) {
+        sineWavetable = _createHarmonicSineWavetable(4096, [{ amp: 1.0, freq: 1 }]);
+    }
+
+    const { CARRIER_VIBRATO_FREQ_HZ, CARRIER_VIBRATO_GAIN, CARRIER_PAN_LEFT, CARRIER_PAN_RIGHT, CARRIER_GAIN, CARRIER_MORPH_LFO_FREQ_HZ, CARRIER_MORPH_LFO_GAIN } = config.engine;
     
     const createCarrierNode = () => {
         const node = new AudioWorkletNode(audioCtx, 'waveform-core-processor');
-        node.port.postMessage({ wavetable: carrierWavetable });
+        node.port.postMessage({ wavetable: activeWavetable });
+        node.port.postMessage({ wavetable2: sineWavetable });
         
         // Set envelope for continuous tone
         node.parameters.get('gate').setValueAtTime(1, 0);
@@ -680,11 +864,32 @@ async function _createCarrierPair(audioCtx, globalTimeOffset = 0) {
     const left = createCarrierNode();
     const right = createCarrierNode();
     
+    // Vibrato LFO for pitch
     const vibLFOPhase = (2 * Math.PI * CARRIER_VIBRATO_FREQ_HZ * globalTimeOffset) % (2 * Math.PI);
     const lfo = await _createLFO(audioCtx, { frequency: CARRIER_VIBRATO_FREQ_HZ, amplitude: CARRIER_VIBRATO_GAIN, startPhase: vibLFOPhase});
     if (lfo) {
         lfo.connect(left.parameters.get('frequency'));
         lfo.connect(right.parameters.get('frequency'));
+    }
+
+    // Morph LFO for timbre
+    const morphLFOPhase = (2 * Math.PI * CARRIER_MORPH_LFO_FREQ_HZ * globalTimeOffset) % (2 * Math.PI);
+    const morphLFO = await _createLivingLFO(audioCtx, { frequency: CARRIER_MORPH_LFO_FREQ_HZ, amplitude: CARRIER_MORPH_LFO_GAIN, startPhase: morphLFOPhase });
+    
+    // The Living LFO outputs -1 to 1. We need 0 to 1 for the morph param.
+    // Scale it to [-0.5, 0.5] then offset by 0.5 to get [0, 1].
+    const morphLFOShaper = audioCtx.createGain();
+    morphLFOShaper.gain.value = 0.5; 
+    const morphLFOOffset = audioCtx.createConstantSource();
+    morphLFOOffset.offset.value = 0.5;
+    morphLFOOffset.start();
+
+    if (morphLFO) {
+        morphLFO.connect(morphLFOShaper);
+        morphLFOShaper.connect(left.parameters.get('morph'));
+        morphLFOShaper.connect(right.parameters.get('morph'));
+        morphLFOOffset.connect(left.parameters.get('morph'));
+        morphLFOOffset.connect(right.parameters.get('morph'));
     }
 
     const panL = audioCtx.createStereoPanner(); panL.pan.value = CARRIER_PAN_LEFT;
@@ -883,7 +1088,7 @@ async function _createIsoLayer(audioCtx, globalTimeOffset = 0) {
 }
 
 async function _createWindSound(audioCtx, globalTimeOffset = 0) {
-    const { WIND_BUFFER_S, WIND_FILTER_FREQ_HZ, WIND_FILTER_Q, WIND_GAIN_LFO_FREQ_HZ, WIND_GAIN_LFO_GAIN, WIND_BASE_GAIN, WIND_PAN_LFO_FREQ_HZ, WIND_PAN_LFO_GAIN } = config.engine;
+    const { WIND_BUFFER_S, WIND_FILTER_FREQ_HZ, WIND_FILTER_Q, WIND_GAIN_LFO_FREQ_HZ, WIND_GAIN_LFO_GAIN, WIND_BASE_GAIN, WIND_PAN_LFO_FREQ_X_HZ, WIND_PAN_LFO_GAIN_X, WIND_PAN_LFO_FREQ_Y_HZ, WIND_PAN_LFO_GAIN_Y, WIND_PAN_LFO_FREQ_Z_HZ, WIND_PAN_LFO_GAIN_Z } = config.engine;
     const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * WIND_BUFFER_S, audioCtx.sampleRate), output = buffer.getChannelData(0);
     for (let i = 0; i < output.length; i++) output[i] = Math.random() * 2 - 1;
     const source = audioCtx.createBufferSource(); source.buffer = buffer; source.loop = true;
@@ -893,16 +1098,27 @@ async function _createWindSound(audioCtx, globalTimeOffset = 0) {
     const gainLFO = await _createLivingLFO(audioCtx, { frequency: WIND_GAIN_LFO_FREQ_HZ, amplitude: WIND_GAIN_LFO_GAIN, startPhase: gainLFOPhase });
     
     const mainGain = audioCtx.createGain(); mainGain.gain.value = WIND_BASE_GAIN;
-    const panner = audioCtx.createStereoPanner(); panner.pan.value = 0;
+    
+    const panner = audioCtx.createPanner();
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
 
-    const panLFOPhase = (2 * Math.PI * WIND_PAN_LFO_FREQ_HZ * globalTimeOffset) % (2 * Math.PI);
-    const panLFO = await _createLivingLFO(audioCtx, { frequency: WIND_PAN_LFO_FREQ_HZ, amplitude: WIND_PAN_LFO_GAIN, startPhase: panLFOPhase });
+    const panLFOX = await _createLivingLFO(audioCtx, { frequency: WIND_PAN_LFO_FREQ_X_HZ, amplitude: WIND_PAN_LFO_GAIN_X, startPhase: (globalTimeOffset * 1.1) % (2 * Math.PI) });
+    const panLFOY = await _createLivingLFO(audioCtx, { frequency: WIND_PAN_LFO_FREQ_Y_HZ, amplitude: WIND_PAN_LFO_GAIN_Y, startPhase: (globalTimeOffset * 1.2) % (2 * Math.PI) });
+    const panLFOZ = await _createLivingLFO(audioCtx, { frequency: WIND_PAN_LFO_FREQ_Z_HZ, amplitude: WIND_PAN_LFO_GAIN_Z, startPhase: (globalTimeOffset * 1.3) % (2 * Math.PI) });
 
     const limiter = _createLimiterCompressor(audioCtx);
 
-    if (panLFO) panLFO.connect(panner.pan);
+    if (panLFOX) panLFOX.connect(panner.positionX);
+    if (panLFOY) panLFOY.connect(panner.positionY);
+    if (panLFOZ) panLFOZ.connect(panner.positionZ);
     if (gainLFO) gainLFO.connect(mainGain.gain);
-    source.connect(filter); filter.connect(mainGain); mainGain.connect(panner).connect(limiter);
+    
+    source.connect(filter);
+    filter.connect(mainGain);
+    mainGain.connect(panner);
+    panner.connect(limiter);
+    
     source.start();
     return { output: limiter, gainNode: mainGain };
 }
@@ -918,23 +1134,26 @@ function _createDrumWave(audioCtx) {
 }
 
 async function _createShamanicDrum(audioCtx, globalTimeOffset = 0) {
-    const { DRUM_LOOP_S, DRUM_MAIN_GAIN, DRUM_FILTER_FREQ, DRUM_FILTER_Q, DRUM_PAN_RANGE } = config.engine;
+    const { DRUM_LOOP_S, DRUM_MAIN_GAIN, DRUM_FILTER_FREQ, DRUM_FILTER_Q, DRUM_PAN_LFO_FREQ_X_HZ, DRUM_PAN_LFO_GAIN_X, DRUM_PAN_LFO_FREQ_Y_HZ, DRUM_PAN_LFO_GAIN_Y, DRUM_PAN_LFO_FREQ_Z_HZ, DRUM_PAN_LFO_GAIN_Z } = config.engine;
     const LOOP_DURATION_S = DRUM_LOOP_S;
     
     let renderedBuffer;
     if (memoizedBuffers.has('drum')) {
         renderedBuffer = memoizedBuffers.get('drum');
     } else {
-        const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, Math.ceil(LOOP_DURATION_S * audioCtx.sampleRate), audioCtx.sampleRate);
+        // Render a MONO buffer, panning will be done in real-time.
+        const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, Math.ceil(LOOP_DURATION_S * audioCtx.sampleRate), audioCtx.sampleRate);
         const mainGain = offlineCtx.createGain(); mainGain.gain.value = DRUM_MAIN_GAIN; mainGain.connect(offlineCtx.destination);
         const customWave = _createDrumWave(offlineCtx);
         const scheduleBeat = (frequency, time, decay, gain) => {
             const osc = offlineCtx.createOscillator(); osc.setPeriodicWave(customWave);
             osc.frequency.setValueAtTime(frequency + (Math.random() - 0.5) * 2, time);
-            const oscGain = offlineCtx.createGain(), lowpass = offlineCtx.createBiquadFilter(), panner = offlineCtx.createStereoPanner();
+            const oscGain = offlineCtx.createGain(), lowpass = offlineCtx.createBiquadFilter();
             lowpass.type = 'lowpass'; lowpass.frequency.setValueAtTime(DRUM_FILTER_FREQ, time); lowpass.Q.value = DRUM_FILTER_Q;
-            panner.pan.setValueAtTime((Math.random() - 0.5) * DRUM_PAN_RANGE, time);
-            osc.connect(oscGain); oscGain.connect(lowpass); lowpass.connect(panner); panner.connect(mainGain);
+            // No panner during rendering
+            osc.connect(oscGain);
+            oscGain.connect(lowpass);
+            lowpass.connect(mainGain);
             oscGain.gain.setValueAtTime(0, time);
             oscGain.gain.linearRampToValueAtTime(gain + (Math.random() - 0.5) * 0.2, time + 0.01);
             oscGain.gain.exponentialRampToValueAtTime(0.001, time + decay);
@@ -950,23 +1169,43 @@ async function _createShamanicDrum(audioCtx, globalTimeOffset = 0) {
     source.loop = true;
     const loopStartOffset = (globalTimeOffset || 0) % LOOP_DURATION_S;
     
+    // Create the real-time 3D panner
+    const panner = audioCtx.createPanner();
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
+
+    const panLFOX = await _createLivingLFO(audioCtx, { frequency: DRUM_PAN_LFO_FREQ_X_HZ, amplitude: DRUM_PAN_LFO_GAIN_X, startPhase: (globalTimeOffset * 1.1) % (2 * Math.PI) });
+    const panLFOY = await _createLivingLFO(audioCtx, { frequency: DRUM_PAN_LFO_FREQ_Y_HZ, amplitude: DRUM_PAN_LFO_GAIN_Y, startPhase: (globalTimeOffset * 1.2) % (2 * Math.PI) });
+    const panLFOZ = await _createLivingLFO(audioCtx, { frequency: DRUM_PAN_LFO_FREQ_Z_HZ, amplitude: DRUM_PAN_LFO_GAIN_Z, startPhase: (globalTimeOffset * 1.3) % (2 * Math.PI) });
+
+    if (panLFOX) panLFOX.connect(panner.positionX);
+    if (panLFOY) panLFOY.connect(panner.positionY);
+    if (panLFOZ) panLFOZ.connect(panner.positionZ);
+    
     const limiter = _createLimiterCompressor(audioCtx);
-    source.connect(limiter);
+    source.connect(panner);
+    panner.connect(limiter);
     source.start(0, loopStartOffset);
     return { output: limiter, source };
 }
 
 async function _createSingingBowl(audioCtx, globalTimeOffset = 0) {
-    const { BOWL_MAIN_GAIN, BOWL_PAN_LFO_FREQ_HZ, BOWL_PAN_LFO_GAIN, BOWL_ATTACK_S, BOWL_DECAY_S, BOWL_INTERVAL_S, BOWL_SCHEDULER_INTERVAL_MS, BOWL_SCHEDULER_LOOKAHEAD_S } = config.engine;
+    const { BOWL_MAIN_GAIN, BOWL_PAN_LFO_FREQ_X_HZ, BOWL_PAN_LFO_GAIN_X, BOWL_PAN_LFO_FREQ_Y_HZ, BOWL_PAN_LFO_GAIN_Y, BOWL_PAN_LFO_FREQ_Z_HZ, BOWL_PAN_LFO_GAIN_Z, BOWL_ATTACK_S, BOWL_DECAY_S, BOWL_INTERVAL_S, BOWL_SCHEDULER_INTERVAL_MS, BOWL_SCHEDULER_LOOKAHEAD_S } = config.engine;
 
     const mainGain = audioCtx.createGain();
     mainGain.gain.value = BOWL_MAIN_GAIN;
-    const panner = audioCtx.createStereoPanner();
-    mainGain.connect(panner);
+    
+    const panner = audioCtx.createPanner();
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
 
-    const panLFOPhase = (2 * Math.PI * BOWL_PAN_LFO_FREQ_HZ * globalTimeOffset) % (2 * Math.PI);
-    const panLFO = await _createLFO(audioCtx, { frequency: BOWL_PAN_LFO_FREQ_HZ, amplitude: BOWL_PAN_LFO_GAIN, startPhase: panLFOPhase });
-    if (panLFO) panLFO.connect(panner.pan);
+    const panLFOX = await _createLivingLFO(audioCtx, { frequency: BOWL_PAN_LFO_FREQ_X_HZ, amplitude: BOWL_PAN_LFO_GAIN_X, startPhase: (globalTimeOffset * 1.1) % (2 * Math.PI) });
+    const panLFOY = await _createLivingLFO(audioCtx, { frequency: BOWL_PAN_LFO_FREQ_Y_HZ, amplitude: BOWL_PAN_LFO_GAIN_Y, startPhase: (globalTimeOffset * 1.2) % (2 * Math.PI) });
+    const panLFOZ = await _createLivingLFO(audioCtx, { frequency: BOWL_PAN_LFO_FREQ_Z_HZ, amplitude: BOWL_PAN_LFO_GAIN_Z, startPhase: (globalTimeOffset * 1.3) % (2 * Math.PI) });
+
+    if (panLFOX) panLFOX.connect(panner.positionX);
+    if (panLFOY) panLFOY.connect(panner.positionY);
+    if (panLFOZ) panLFOZ.connect(panner.positionZ);
 
     const envelope = audioCtx.createGain();
     envelope.gain.value = 0.0;
@@ -977,7 +1216,12 @@ async function _createSingingBowl(audioCtx, globalTimeOffset = 0) {
     source.loop = true;
     
     const limiter = _createLimiterCompressor(audioCtx);
-    source.connect(envelope).connect(mainGain).connect(limiter);
+    
+    source.connect(envelope);
+    envelope.connect(mainGain);
+    mainGain.connect(panner);
+    panner.connect(limiter);
+    
     source.start();
 
     // --- Click-free AD envelope using ramps ---
@@ -1094,7 +1338,7 @@ async function _createDeepSleepBinaural(audioCtx, globalTimeOffset = 0) {
     const leftPanner = audioCtx.createStereoPanner(), rightPanner = audioCtx.createStereoPanner(), panInverter = audioCtx.createGain(), merger = audioCtx.createChannelMerger(2);
     panInverter.gain.value = DEEP_SLEEP_PAN_INVERTER_GAIN;
     const panLFOPhase = (2 * Math.PI * DEEP_SLEEP_PAN_LFO_FREQ_HZ * globalTimeOffset) % (2 * Math.PI);
-    const panLFO = await _createLFO(audioCtx, { frequency: DEEP_SLEEP_PAN_LFO_FREQ_HZ, amplitude: DEEP_SLEEP_PAN_LFO_GAIN, startPhase: panLFOPhase });
+    const panLFO = await _createLivingLFO(audioCtx, { frequency: DEEP_SLEEP_PAN_LFO_FREQ_HZ, amplitude: DEEP_SLEEP_PAN_LFO_GAIN, startPhase: panLFOPhase });
 
     if (panLFO) {
         panLFO.connect(leftPanner.pan); panLFO.connect(panInverter); panInverter.connect(rightPanner.pan);
@@ -1249,49 +1493,71 @@ async function _createResonantPulse(audioCtx, globalTimeOffset = 0) {
     };
 }
 
-async function _createAudioGraph(audioCtx, destinationNode, activeToggles, initialIntensity, globalTimeOffset = 0) {
+async function _createAudioGraph(audioCtx, destinationNode, activeToggles, initialIntensity, globalTimeOffset = 0, activePresetName = 'full_spectrum') {
     const newEffectsGain = audioCtx.createGain(); newEffectsGain.gain.value = initialIntensity; newEffectsGain.connect(destinationNode);
     const newNodes = { effectsGain: newEffectsGain };
 
     // --- Create essential, non-optional nodes first ---
-    // These will throw an error and stop execution if they fail, which is intended
-    // as the app cannot function without them.
-    newNodes.reverb = _createReverb(audioCtx); newNodes.reverb.connect(destinationNode);
-    newNodes.carrier = await _createCarrierPair(audioCtx, globalTimeOffset);
-    newNodes.carrier.output.connect(destinationNode); 
-    newNodes.carrier.output.connect(newNodes.reverb); 
-    newNodes.pad = await _createPadLayer(audioCtx, globalTimeOffset); 
-    newNodes.pad.output.connect(destinationNode); newNodes.pad.output.connect(newNodes.reverb);
+    newNodes.carrier = await _createCarrierPair(audioCtx, globalTimeOffset, activePresetName);
+    newNodes.carrier.output.connect(destinationNode);
 
-    // --- Create optional effect nodes with graceful degradation ---
+    newNodes.pad = await _createPadLayer(audioCtx, globalTimeOffset);
+    newNodes.pad.output.connect(destinationNode);
+    
     const creators = {
         iso: _createIsoLayer, noise: _createPinkNoise, wind: _createWindSound,
         drum: _createShamanicDrum, bowl: _createSingingBowl, deepSleep: _createDeepSleepBinaural,
-        brainPulse: _createBrainPulse, resonantPulse: _createResonantPulse
+        brainPulse: _createBrainPulse, resonantPulse: _createResonantPulse,
+        reverb: _createReverbUnit,
     };
+
+    // --- Create Reverb effect chain first so other effects can send to it ---
+    try {
+        const reverbConf = toggleConfigs.find(c => c.nodeKey === 'reverb');
+        const reverbNode = await creators.reverb(audioCtx);
+        const reverbGainSwitch = audioCtx.createGain();
+        reverbGainSwitch.gain.value = activeToggles[reverbConf.stateKey] ? 1 : 0;
+
+        reverbNode.output.connect(reverbGainSwitch);
+        reverbGainSwitch.connect(newEffectsGain);
+        
+        // The reverb bus is the input to the reverb unit
+        const reverbBus = reverbNode.input;
+        newNodes.carrier.output.connect(reverbBus);
+        newNodes.pad.output.connect(reverbBus);
+
+        newNodes.reverb = { ...reverbNode, gainSwitch: reverbGainSwitch, source: reverbNode.output };
+    } catch (error) {
+        console.error(`Failed to create audio node 'reverb':`, error);
+        emit('engine:node-creation-failed', { nodeKey: 'reverb' });
+    }
+
+    // --- Create other optional effect nodes ---
+    const effectsToSendToReverb = new Set(['drum', 'bowl', 'iso']);
     
     for (const conf of toggleConfigs) {
         const { nodeKey } = conf;
-        if (!creators[nodeKey]) continue;
+        if (nodeKey === 'reverb' || !creators[nodeKey]) continue; // Skip reverb, already created
 
         try {
             const node = await creators[nodeKey](audioCtx, globalTimeOffset);
             
-            const gainSwitch = audioCtx.createGain(); 
+            const gainSwitch = audioCtx.createGain();
             gainSwitch.gain.value = activeToggles[conf.stateKey] ? 1 : 0;
-            const output = node.output || node; 
+            
+            const output = node.output || node;
             output.connect(gainSwitch);
             gainSwitch.connect(newEffectsGain);
 
-            if(!['deepSleep', 'brainPulse', 'resonantPulse'].includes(nodeKey)) {
-                gainSwitch.connect(newNodes.reverb);
+            if (effectsToSendToReverb.has(nodeKey) && newNodes.reverb) {
+                gainSwitch.connect(newNodes.reverb.input);
             }
+
             newNodes[nodeKey] = { ...node, gainSwitch, source: output };
 
         } catch (error) {
             console.error(`Failed to create audio node '${nodeKey}':`, error);
             emit('engine:node-creation-failed', { nodeKey });
-            // Continue to the next node, allowing the app to run without this effect.
         }
     }
     return newNodes;
@@ -1350,7 +1616,7 @@ function _createWavBlobFromPcm(pcmData, numChannels, sampleRate) {
     return new Blob([view], { type: 'audio/wav' });
 }
 
-export async function renderOffline(progressCallback, mimeType, bitrate) {
+export async function renderOffline(progressCallback, mimeType, bitrate, activePresetName) {
     if (mimeType !== 'audio/wav') {
         throw new Error('Sorry, only WAV export is currently supported.');
     }
@@ -1358,12 +1624,14 @@ export async function renderOffline(progressCallback, mimeType, bitrate) {
     const CHUNK_DURATION_S = 60.0;
     const totalDuration = state.sessionLengthMinutes * 60;
     const sampleRate = 44100;
-    const stagesToRender = state.STAGES;
-    const stageDuration = totalDuration / stagesToRender.length;
+    const preset = PRESETS[activePresetName] || PRESETS.full_spectrum;
+    const stagesToRender = preset.stages;
     
     if (stagesToRender.length === 0) {
         throw new Error("No stages to render.");
     }
+    
+    const stageDuration = totalDuration / stagesToRender.length;
     
     const activeToggles = toggleConfigs.reduce((acc, conf) => {
         acc[conf.stateKey] = state[conf.stateKey];
@@ -1388,7 +1656,7 @@ export async function renderOffline(progressCallback, mimeType, bitrate) {
         offlineMasterGain.connect(offlineCtx.destination);
         offlineMasterGain.gain.value = state.masterVolume;
         
-        const offlineNodes = await _createAudioGraph(offlineCtx, offlineMasterGain, activeToggles, state.effectsIntensity, chunkStartTime);
+        const offlineNodes = await _createAudioGraph(offlineCtx, offlineMasterGain, activeToggles, state.effectsIntensity, chunkStartTime, activePresetName);
 
         // Schedule all relevant stages for this chunk
         for (let i = 0; i < stagesToRender.length; i++) {

@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, REVERB_SPACES } from './state.js';
 import { PRESETS, toggleConfigs, config } from './presets.js';
 
 export const elements = {};
@@ -42,6 +42,8 @@ function queryElements() {
     elements.presetDialogCloseBtn = document.getElementById('presetDialogCloseBtn');
     elements.presetDialogExitBtn = document.getElementById('presetDialogExitBtn');
     elements.presetCardContainer = document.getElementById('presetCardContainer');
+
+    elements.reverbSpaceSelector = document.getElementById('reverbSpaceSelector');
 
     toggleConfigs.forEach(config => {
         elements[config.optionId] = document.getElementById(config.optionId);
@@ -146,6 +148,7 @@ export function init(controller) {
     elements.lengthSlider.addEventListener('input', controller.debounce(e => controller.handleLengthChange(e.target.value), 50));
     elements.intensitySlider.addEventListener('input', controller.debounce((e) => controller.handleIntensityChange(e.target.value), 50));
     elements.masterVolumeSlider.addEventListener('input', controller.debounce((e) => controller.handleMasterVolumeChange(e.target.value), 50));
+    elements.reverbSpaceSelector.addEventListener('change', e => controller.handleReverbSpaceChange(e.target.value));
     
     toggleConfigs.forEach(config => {
         elements[config.optionId].addEventListener('click', controller.debounce(() => {
@@ -175,7 +178,7 @@ export function init(controller) {
         elements.lengthSlider, elements.intensitySlider, elements.masterVolumeSlider,
         elements.saveAudioBtn, elements.openPresetDialogBtn, elements.installAppBtn,
         elements.saveModalCloseBtn, elements.cancelModalBtn, elements.startRenderBtn, elements.cancelRenderBtn,
-        elements.presetDialogCloseBtn, elements.presetDialogExitBtn,
+        elements.presetDialogCloseBtn, elements.presetDialogExitBtn, elements.reverbSpaceSelector,
         ...toggleConfigs.map(c => elements[c.optionId])
     ].filter(Boolean); // Filter out any undefined elements that might not have been found
 
@@ -188,6 +191,7 @@ export function init(controller) {
         controller.handlePresetCardClick.bind(controller),
         controller.handleFirstInteraction.bind(controller)
     );
+    populateReverbSelector();
     syncUIWithState(); // Single call to initialize the UI from state.
 }
 
@@ -200,6 +204,7 @@ export function syncUIWithState() {
     elements.lengthSlider.value = state.sessionLengthMinutes;
     elements.intensitySlider.value = state.effectsIntensity;
     elements.masterVolumeSlider.value = state.masterVolume;
+    elements.reverbSpaceSelector.value = state.activeReverbSpace;
     
     // Toggles
     toggleConfigs.forEach(config => {
@@ -253,6 +258,17 @@ export function populatePresetDialog(cardClickHandler, firstInteractionHandler) 
             card.addEventListener('pointerdown', firstInteractionHandler, { once: true });
         }
         container.appendChild(card);
+    }
+}
+
+export function populateReverbSelector() {
+    const select = elements.reverbSpaceSelector;
+    select.innerHTML = '';
+    for (const [key, name] of Object.entries(REVERB_SPACES)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = name;
+        select.appendChild(option);
     }
 }
 

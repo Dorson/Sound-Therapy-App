@@ -1,34 +1,48 @@
-# TODO: Future Enhancements
+# TODO: Future Enhancements (Project "Aura" - 1000x Quality Upgrade)
 
-## Phase 5: Advanced Spatialization and Environment Modeling
+This document outlines the strategic initiatives to elevate the app's sound therapy quality, realism, and psychoacoustic effectiveness. The goal is to transition from a high-quality generator to a world-class psychoacoustic tool.
 
-- Research and implement more advanced stereo panning and spatialization techniques to create a more immersive 3D sound field.
-- Explore adding dynamic environment simulation (e.g., reverb size changing based on stage) to enhance the sense of space.
+# I. UI & User Experience Enhancements
 
-## Phase 6: Psychoacoustic Expansion - "DMT Release Sound Therapy"
+- **[ ] Action: Implement Amplitude Modulation (AM) Entrainment**
+    -   **Goal:** Provide a smoother, less percussive alternative to isochronic gating that doesn't strictly require headphones.
+    -   **Implementation:** Create a new "AM Pulse" effect layer. This will use a sine-wave LFO (driven by the stage's `beat` frequency) to modulate the amplitude of a carrier sound (e.g., pink noise or the pad layer).
+    -   **Control:** Add a toggle button for this new layer in the UI.
 
-This phase focuses on creating a new, advanced preset based on neuroscientific findings related to DMT experiences. The goal is to simulate the dynamic shifts in brainwave activity (Alpha suppression, Theta/Delta/Gamma increase) for therapeutic and explorative purposes.
+# II. Psychoacoustic Engine Enhancements
 
-### Step 1: Research & Parameter Mapping
-- **Action:** Analyze scientific literature on EEG readings during endogenous/exogenous DMT states.
-- **Goal:** Map key findings (e.g., alpha power drop, theta/gamma power surge, "carrier hum") to the app's available sound parameters (`base`, `beat`, `padCut`, effect toggles, etc.).
+**Objective:** Broaden the entrainment techniques beyond basic binaural/isochronic methods for greater efficacy and user comfort.
 
-### Step 2: Sound Design & Wavetable Creation
-- **Action:** Design a new, unique wavetable for the carrier oscillator used in this preset. The sound should be less "clean" than the current sine-based one, perhaps with more complex, slightly dissonant harmonics to represent the "vibrational" aspect of the experience.
-- **Goal:** Create a `dmtCarrierWavetable` in `wavetables.js` that can be loaded by the `WaveformCoreProcessor`.
+- **[ ] Action: Develop Dynamic Entrainment Protocols**
+    -   **Goal:** Guide the brain more effectively between states by gradually changing entrainment frequencies over time, rather than jumping between static frequencies at each stage.
+    -   **Implementation:**
+        -   Enhance the preset stage definition to accept optional `beatEnd` and `baseEnd` properties.
+        -   Modify the `setStage` function to schedule a slow, continuous `linearRampToValueAtTime` for the binaural beat frequency throughout the duration of the stage.
+    -   **Example Preset:** Create a "Focus to Relax" preset with a single 10-minute stage that sweeps the beat frequency from 14Hz (Beta) down to 10Hz (Alpha).
 
-### Step 3: Multi-Stage Preset Implementation
-- **Action:** Create a new preset object named `dmt_release` in `presets.js`. This preset will have multiple stages to model the typical progression of the experience.
-- **Goal:** Define at least 4 stages:
-    1.  **Onset:** Simulates the initial "rush" with a rising carrier frequency and intense vibrational effects. Utilize the `resonantPulse` effect.
-    2.  **Immersion:** Characterized by suppressed Alpha waves and a deep Theta/Delta state. Soundscape should be spacious and atmospheric.
-    3.  **Peak:** Introduce high-frequency Gamma entrainment (40Hz+ beat) layered over the deep Theta state. The soundscape should be complex, intricate, and dynamic.
-    4.  **Re-entry:** A gradual return to a calm, integrative Alpha state. Frequencies descend and complexity reduces.
+- **[ ] Action: Design Harmonic Coherence Protocols**
+    -   **Goal:** Align the harmonic content (timbre) of the soundscape with the target brainwave state to deepen the immersive experience.
+    -   **Implementation:**
+        -   Expand the `wavetables.js` module to generate a library of wavetables with specific harmonic profiles (e.g., "Alpha-Tuned" with soft, odd harmonics; "Beta-Tuned" with a richer, brighter spectrum).
+        -   Modify the preset format to allow stages to specify which carrier wavetable to use (extending the `carrier: 'dmt'` concept).
+        -   Update the `_createCarrierPair` function to dynamically load the appropriate wavetable based on the current preset and stage.
 
-### Step 4: UI & Documentation Update
-- **Action:** Add the preset description to `presets.js`, ensuring it has a clear, responsible explanation and a strong cautionary note about its intensity. The UI will automatically pick it up from there.
-- **Goal:** Ensure the user understands what the preset is, how to use it safely, and what to expect.
+- **[ ] Action: Implement Personalized Frequency Protocols**
+    -   **Goal:** Cater to users interested in specific, well-known frequency systems and alternative tunings.
+    -   **Sub-Action 1 (Schumann Resonance):** Create a dedicated preset that targets the primary Schumann Resonance (7.83Hz) using earthy, grounding textures.
+    -   **Sub-Action 2 (Solfeggio Frequencies):** Add a series of simple, single-stage presets, each tuned to a specific Solfeggio frequency (e.g., 528 Hz). The UI for these presets should include a brief, neutral note about their historical/spiritual origins rather than making unproven scientific claims.
 
-### Step 5: Testing & Refinement
-- **Action:** Conduct thorough listening tests to balance the intensity of the effects.
-- **Goal:** Ensure the preset is powerful but not jarring or uncomfortable. Adjust gain levels, ramp times, and frequencies for a smooth, effective, and safe psychoacoustic journey.
+# III. Engine Robustness & Audio Polish
+
+**Objective:** Refine the final audio output to professional studio quality and ensure maximum stability.
+
+- **[ ] Action: Implement Master Bus Multi-Band Compression**
+    -   **Goal:** Achieve a warmer, fuller, and more controlled final mix, preventing certain frequencies from becoming harsh or boomy at higher volumes.
+    -   **Implementation:** Before the final master gain, create a master processing chain. Use multiple `BiquadFilterNode`s to split the audio into 2 or 3 bands (e.g., Low, Mid, High). Route each band through its own `DynamicsCompressorNode` with settings tailored for that frequency range, then recombine the signals before the final output.
+
+- **[ ] Action: Perceptual Loudness Compensation**
+    -   **Goal:** Ensure the perceived loudness remains relatively constant when the user changes presets, preventing jarring volume jumps between presets with different frequency content.
+    -   **Implementation:**
+        -   Integrate a simple, lightweight EBU R 128 loudness measurement algorithm. This could be implemented in a `ScriptProcessorNode` (for compatibility) or a dedicated `AudioWorklet` (for performance) that analyzes the output.
+        -   When transitioning presets, measure the loudness of the new preset's initial stage offline (or use a pre-calculated value).
+        -   Apply a subtle, temporary gain adjustment to the master bus to match the loudness of the previous preset, then smoothly ramp the adjustment back to zero over a few seconds.

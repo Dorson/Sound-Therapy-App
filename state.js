@@ -1,5 +1,12 @@
 import { PRESETS } from './presets.js';
 
+export const REVERB_SPACES = {
+    synthetic: 'Vast Hall',
+    hall: 'Concert Hall',
+    cathedral: 'Cathedral',
+    cave: 'Echoing Cave',
+};
+
 export const state = {
     // Session settings
     sessionLengthMinutes: 10,
@@ -15,6 +22,8 @@ export const state = {
     isDeepSleepEnabled: false,
     isBrainPulseEnabled: false,
     isResonantPulseEnabled: false,
+    isReverbEnabled: true,
+    activeReverbSpace: 'synthetic',
 
     // Playback state
     STAGES: PRESETS.full_spectrum.stages,

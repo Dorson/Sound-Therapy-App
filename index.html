@@ -121,7 +121,17 @@
     </div>
     <span>Resonant Pulse</span>
 </button>
+<button id="reverbOption" role="switch" aria-checked="true" class="toggle-button">
+    <div class="checkmark-container" id="reverbChkContainer">
+    <div id="reverbChk" class="checkmark"></div>
+    </div>
+    <span>Convolution Reverb</span>
+</button>
  </div>
+ <div class="settings-group">
+    <label for="reverbSpaceSelector">Reverb Space</label>
+    <select id="reverbSpaceSelector" class="styled-select"></select>
+</div>
  </div>
  
  <div class="panel info-panel">
@@ -182,6 +192,13 @@
             <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
                 <strong>Method:</strong> This effect uses two very low-frequency sine waves that are slightly detuned. The interference between them creates a slow, powerful "beating" or pulsing. This entire sound is then modulated by another, even slower amplitude swell, simulating the build-up and release of resonant energy.
                 <br><strong>Intended Effect:</strong> To create a psychoacoustic sensation of physical vibration within the skull. The slow, deep pulses are designed to be felt as much as they are heard, potentially creating a unique state of bodily awareness. Use with caution and at low volumes.
+            </dd>
+        </div>
+        <div>
+            <dt><strong>Convolution Reverb</strong></dt>
+            <dd style="font-size: 0.875rem; line-height: 1.625; margin-left:0;">
+                <strong>Method:</strong> A high-fidelity reverb effect created by mathematically combining the audio signal with a pre-recorded audio sample of a real acoustic space (an "impulse response"). In this app, a synthetic impulse response is generated to simulate a vast, smooth hall without external audio files.
+                <br><strong>Intended Effect:</strong> Creates a deep, spacious, and immersive soundstage. Unlike simpler reverbs, convolution reverb provides a highly realistic sense of environment, which can enhance feelings of calm, reduce mental clutter, and make the entire soundscape feel more cohesive and enveloping.
             </dd>
         </div>
     </dl>
