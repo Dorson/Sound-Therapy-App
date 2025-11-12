@@ -1,6 +1,7 @@
 {
   "name": "Sound Therapy App. Binaural Beat SoundScape Maker.",
   "short_name": "Sound Therapy App",
+  "id": "/?source=pwa",
   "description": "Sound Therapy App to make a soundscapes with vibrations and ambient sounds for brain entrainement. Good for relaxation, sleep, meditation, work, study, fitness, or as ambient background noise machine in the room.",
   "start_url": ".",
   "scope": "/",
@@ -8,25 +9,74 @@
   "display_override": [ "fullscreen", "minimal-ui"],
   "background_color": "#1a120b",
   "theme_color": "#d4a017",
+  "categories": ["health", "lifestyle", "music"],
   "icons": [
-{
-"src": "icon-pwa-svg.svg",
-"sizes": "any",
-"type": "image/svg+xml",
-"purpose": "any maskable"
-},
-{
-"src": "icon-pwa-app-192.png",
-"sizes": "192x192",
-"type": "image/png",
-"purpose": "any maskable"
-}
- ],
-"screenshots": [
-  {
-    "src": "icon-pwa-screenshot-1024.jpeg",
-    "sizes": "1024x1024",
-    "type": "image/jpeg"
-  }
-]
+    {
+      "src": "icon-pwa-svg.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-pwa-app-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-pwa-app-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icon-pwa-screenshot-1024.jpeg",
+      "sizes": "1024x1024",
+      "type": "image/jpeg"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Focus Session",
+      "short_name": "Focus",
+      "description": "Launch a session designed to enhance concentration.",
+      "url": "/?preset=focus",
+      "icons": [{
+        "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NiA5NiI+PGNpcmNsZSBjeD0iNDgiIGN5PSI0OCIgcj0iNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iOCIvPjxjaXJjbGUgY3g9IjQ4IiBjeT0iNDgiIHI9IjIwIiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjgiLz48Y2lyY2xlIGN4PSI0OCIgY3k9IjQ4IiByPSI0IiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==",
+        "sizes": "any"
+      }]
+    },
+    {
+      "name": "Start Meditation Session",
+      "short_name": "Meditation",
+      "description": "Launch a session for mindfulness and introspection.",
+      "url": "/?preset=meditation",
+      "icons": [{
+        "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NiA5NiIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik00OCAyNGExMiAxMiAwIDEgMSAwIDI0IDEyIDEyIDAgMCAxIDAtMjR6bTAgMzBjLTE1LjQ2IDAtMjggMTIuNTQtMjggMjhoNTZjMC0xNS40Ni0xMi41NC0yOC0yOC0yOHoiLz48L3N2Zz4=",
+        "sizes": "any"
+      }]
+    },
+    {
+      "name": "Start Relaxation Session",
+      "short_name": "Relaxation",
+      "description": "Launch a session to unwind and reduce stress.",
+      "url": "/?preset=relaxation",
+      "icons": [{
+        "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NiA5NiI+PHBhdGggZD0iTTE2IDQwYzgtOCAxNi04IDI0IDBzMTYgOCAyNCAwIDE2LTggMjQgMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48cGF0aCBkPSJNMTYgNjRjOC04IDE2LTggMjQgMHMsMTYgOCAyNCAwIDE2LTggMjQgMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=",
+        "sizes": "any"
+      }]
+    },
+    {
+      "name": "Start Deep Sleep Session",
+      "short_name": "Deep Sleep",
+      "description": "Launch a session to prepare for restorative sleep.",
+      "url": "/?preset=deep_sleep",
+      "icons": [{
+        "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA5NiA5NiI+PHBhdGggZD0iTTQ4IDE2Yy0xNy42NyAwLTMyIDE0LjMzLTMyIDMyczE0LjMzIDMyIDMyIDMyYzUuNzMgMCAxMS4wOC0xLjUyIDE1LjY1LTQuMTVDNTYuMDkgNzIuODggNDggNjQuODIgNDggNTRjMC0xMy4yNSAxMC43NS0yNCAyNC0yNCAzLjkgMCA3LjU1IDEuMDQgMTAuNjUgMi44NUM3Ny40IDIyLjM3IDYzLjUgMTYgNDggMTZ6IiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==",
+        "sizes": "any"
+      }]
+    }
+  ]
 }

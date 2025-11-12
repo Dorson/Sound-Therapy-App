@@ -1,7 +1,9 @@
-# App Architecture Conversion TODO
+# TODO: Future Enhancements
 
-This file tracks the process of converting the application from a single-file architecture to a modern, modular one.
+## Phase 5: Advanced Spatialization and Environment Modeling
 
-- [ ] Implement more robust error handling in the sound engine to prevent audio context failures from crashing the app and ensure graceful degradation.
-- [ ] Review and enhance PWA offline capabilities by creating a dedicated fallback, and fail safe service worker to ensure all assets are cached correctly for maximum resilience. if the web workers ar enot supported , we should fall back to supportedmethods.
-- [ ] Create a simple, custom event bus to fully decouple modules and eliminate the need for passing controller callbacks.
+- Research and implement more advanced stereo panning and spatialization techniques to create a more immersive 3D sound field.
+- Explore adding dynamic environment simulation (e.g., reverb size changing based on stage) to enhance the sense of space.
+
+
+we need to enhance the medicinal and psycho-acoustic usefulness of our app by 1000X we need a new preset for the "DMT Release Sound Therapy" that preset shall be based on scientific evidence of brain wave scans that happen during DMT release in the brain or the DMT administration from exogenous sources. we need to forumulate concrete action todo steps for how to best implement this new preset into the code base so that it is very effective and useful to the listeners of the app.

@@ -14,6 +14,7 @@ export const state = {
     isBowlEnabled: true,
     isDeepSleepEnabled: false,
     isBrainPulseEnabled: false,
+    isResonantPulseEnabled: false,
 
     // Playback state
     STAGES: PRESETS.full_spectrum.stages,
@@ -23,6 +24,11 @@ export const state = {
     autoplayInterval: null,
     sessionElapsedTime: 0,
     lastTickTime: 0,
+
+    // Engine state
+    audioEngineStatus: 'closed', // 'closed', 'running', 'suspended', 'interrupted'
+    wasPlayingBeforeInterruption: false,
+    disabledEffects: new Set(),
 
     // Internal/transient state
     isInteracting: false,

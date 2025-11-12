@@ -84,6 +84,9 @@
  font-weight: 600;
  color: var(--accent);
  }
+ #stageName.error-state {
+    color: #ff6b6b;
+ }
  #stageSub {
  font-size: 0.875rem;
  color: var(--muted);
@@ -194,6 +197,11 @@
  }
  .toggle-button[aria-checked="false"] .checkmark-container {
  border-width: 0.1875rem;
+ }
+ .toggle-button.toggle-button-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
  }
  .checkmark-container {
  width: 2rem;
@@ -602,6 +610,18 @@
 .modal-container.wide-modal {
     width: 80vw;
     height: 95vh;
+}
+
+.static-format-display {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    background: var(--bg-secondary);
+    color: var(--text);
+    border: 1px solid var(--accent-secondary);
+    margin-top: 0.5rem;
 }
 
 #formatSelector {

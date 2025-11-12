@@ -77,7 +77,7 @@ This project is a showcase of modern, framework-free web development.
 
 -   **Architecture:** The codebase is split into a modular architecture using ES6 Modules (`index.js`, `soundEngine.js`, `ui.js`, `presets.js`) to maintain a clean separation of concerns.
 -   **Core Technology:** 100% Vanilla JavaScript (ES6+), HTML5, and CSS3.
--   **Audio Generation:** All sound is generated in real-time using the **Web Audio API**. This includes oscillators, gain nodes, filters, stereo panners, and a convolver for reverb. Complex looping sounds like the Shamanic Drum are pre-rendered into an `AudioBuffer` for performance.
+-   **Audio Generation:** All sound is generated procedurally. For performance and robustness, complex looping textures (like the Pad, Drum, and Bowl) are pre-rendered into audio buffers in real-time at the start of a session, rather than using static audio files. Simple tones are generated in real-time. This approach minimizes CPU usage during playback.
 -   **Offline First:** Designed to run directly from the file system without needing a web server. All logic is client-side.
 -   **AI-Free:** The app relies on carefully curated presets based on established principles of sound therapy, with no generative AI integration.
 

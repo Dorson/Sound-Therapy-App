@@ -1,198 +1,234 @@
 import { state } from './state.js';
 import { PRESETS, toggleConfigs, config } from './presets.js';
 
-export const ui = {};
+export const elements = {};
+let progressAnimationId = null;
 
 function queryElements() {
-    ui.playPauseBtn = document.getElementById('playPauseBtn');
-    ui.playIcon = document.getElementById('playIcon');
-    ui.playPauseLabel = document.getElementById('playPauseLabel');
-    ui.prevStageBtn = document.getElementById('prevStageBtn');
-    ui.nextStageBtn = document.getElementById('nextStageBtn');
-    ui.saveAudioBtn = document.getElementById('saveAudioBtn');
-    ui.lengthSlider = document.getElementById('lengthSlider');
-    ui.intensitySlider = document.getElementById('intensity');
-    ui.masterVolumeSlider = document.getElementById('masterVolumeSlider');
-    ui.volLabel = document.getElementById('volLabel');
-    ui.lenLabel = document.getElementById('lenLabel');
-    ui.intLabel = document.getElementById('intLabel');
-    ui.stageName = document.getElementById('stageName');
-    ui.stageSub = document.getElementById('stageSub');
-    ui.progressBar = document.getElementById('progressBar');
-    ui.openPresetDialogBtn = document.getElementById('openPresetDialogBtn');
-    ui.installAppBtn = document.getElementById('installAppBtn');
-    ui.installInstructions = document.getElementById('install-instructions');
+    elements.playPauseBtn = document.getElementById('playPauseBtn');
+    elements.playIcon = document.getElementById('playIcon');
+    elements.playPauseLabel = document.getElementById('playPauseLabel');
+    elements.prevStageBtn = document.getElementById('prevStageBtn');
+    elements.nextStageBtn = document.getElementById('nextStageBtn');
+    elements.saveAudioBtn = document.getElementById('saveAudioBtn');
+    elements.lengthSlider = document.getElementById('lengthSlider');
+    elements.intensitySlider = document.getElementById('intensity');
+    elements.masterVolumeSlider = document.getElementById('masterVolumeSlider');
+    elements.volLabel = document.getElementById('volLabel');
+    elements.lenLabel = document.getElementById('lenLabel');
+    elements.intLabel = document.getElementById('intLabel');
+    elements.stageName = document.getElementById('stageName');
+    elements.stageSub = document.getElementById('stageSub');
+    elements.progressBar = document.getElementById('progressBar');
+    elements.openPresetDialogBtn = document.getElementById('openPresetDialogBtn');
+    elements.installAppBtn = document.getElementById('installAppBtn');
+    elements.installInstructions = document.getElementById('install-instructions');
     
-    ui.saveModal = document.getElementById('saveModal');
-    ui.saveModalBackdrop = document.getElementById('saveModalBackdrop');
-    ui.saveModalCloseBtn = document.getElementById('saveModalCloseBtn');
-    ui.saveSettingsView = document.getElementById('saveSettingsView');
-    ui.saveProgressView = document.getElementById('saveProgressView');
-    ui.formatSelector = document.getElementById('formatSelector');
-    ui.formatInfo = document.getElementById('formatInfo');
-    ui.startRenderBtn = document.getElementById('startRenderBtn');
-    ui.cancelModalBtn = document.getElementById('cancelModalBtn');
-    ui.progressStatusText = document.getElementById('progressStatusText');
-    ui.renderProgressBar = document.getElementById('renderProgressBar');
-    ui.progressTimeText = document.getElementById('progressTimeText');
-    ui.cancelRenderBtn = document.getElementById('cancelRenderBtn');
+    elements.saveModal = document.getElementById('saveModal');
+    elements.saveModalBackdrop = document.getElementById('saveModalBackdrop');
+    elements.saveModalCloseBtn = document.getElementById('saveModalCloseBtn');
+    elements.saveSettingsView = document.getElementById('saveSettingsView');
+    elements.saveProgressView = document.getElementById('saveProgressView');
+    elements.formatInfo = document.getElementById('formatInfo');
+    elements.startRenderBtn = document.getElementById('startRenderBtn');
+    elements.cancelModalBtn = document.getElementById('cancelModalBtn');
+    elements.progressStatusText = document.getElementById('progressStatusText');
+    elements.renderProgressBar = document.getElementById('renderProgressBar');
+    elements.progressTimeText = document.getElementById('progressTimeText');
+    elements.cancelRenderBtn = document.getElementById('cancelRenderBtn');
 
-    ui.presetDialog = document.getElementById('presetDialog');
-    ui.presetDialogBackdrop = document.getElementById('presetDialogBackdrop');
-    ui.presetDialogCloseBtn = document.getElementById('presetDialogCloseBtn');
-    ui.presetDialogExitBtn = document.getElementById('presetDialogExitBtn');
-    ui.presetCardContainer = document.getElementById('presetCardContainer');
+    elements.presetDialog = document.getElementById('presetDialog');
+    elements.presetDialogBackdrop = document.getElementById('presetDialogBackdrop');
+    elements.presetDialogCloseBtn = document.getElementById('presetDialogCloseBtn');
+    elements.presetDialogExitBtn = document.getElementById('presetDialogExitBtn');
+    elements.presetCardContainer = document.getElementById('presetCardContainer');
 
     toggleConfigs.forEach(config => {
-        ui[config.optionId] = document.getElementById(config.optionId);
-        ui[config.chkId] = document.getElementById(config.chkId);
+        elements[config.optionId] = document.getElementById(config.optionId);
+        elements[config.chkId] = document.getElementById(config.chkId);
     });
 }
 
-export function init(controller) {
-    queryElements();
+// --- Internal UI Update Functions ---
 
-    ui.playPauseBtn.addEventListener('click', controller.handlePlayPause.bind(controller));
-    ui.prevStageBtn.addEventListener('click', controller.goToPreviousStage.bind(controller));
-    ui.nextStageBtn.addEventListener('click', controller.goToNextStage.bind(controller));
-    ui.lengthSlider.addEventListener('input', controller.debounce(e => controller.handleLengthChange(e.target.value), 50));
-    ui.intensitySlider.addEventListener('input', controller.debounce((e) => controller.handleIntensityChange(e.target.value), 50));
-    ui.masterVolumeSlider.addEventListener('input', controller.debounce((e) => controller.handleMasterVolumeChange(e.target.value), 50));
-    
-    toggleConfigs.forEach(config => {
-        ui[config.optionId].addEventListener('click', controller.debounce(() => {
-            controller.handleToggle(config.stateKey, config.nodeKey);
-        }, 50));
-    });
-
-    ui.saveAudioBtn.addEventListener('click', () => showSaveModal());
-    ui.saveModalCloseBtn.addEventListener('click', () => hideSaveModal());
-    ui.cancelModalBtn.addEventListener('click', () => hideSaveModal());
-    ui.saveModalBackdrop.addEventListener('click', () => hideSaveModal());
-    ui.startRenderBtn.addEventListener('click', controller.startAudioRender.bind(controller));
-    ui.formatSelector.addEventListener('change', () => updateFormatInfo());
-    ui.cancelRenderBtn.addEventListener('click', () => {
-        state.renderProcess.cancel = true;
-        updateRenderProgress(state.renderProcess.progress, 'Cancellation requested. Finishing render step...', '');
-    });
-
-    ui.openPresetDialogBtn.addEventListener('click', () => showPresetDialog());
-    ui.presetDialogCloseBtn.addEventListener('click', () => hidePresetDialog());
-    ui.presetDialogExitBtn.addEventListener('click', () => hidePresetDialog());
-    ui.presetDialogBackdrop.addEventListener('click', () => hidePresetDialog());
-    
-    checkPWA();
-    checkSupportedFormats();
-    populatePresetDialog(controller.handlePresetCardClick.bind(controller));
-    initUIState();
+function updateLengthLabel(value) {
+    elements.lenLabel.textContent = value;
 }
 
-
-export function updateUIStage(idx, stages, activePreset) {
-    if (idx < 0) {
-        ui.stageName.textContent = 'Idle • Ready';
-        ui.stageSub.textContent = 'Select a therapy to begin';
-        ui.progressBar.style.width = '0%';
-    } else {
-        const presetName = (activePreset !== 'none' && PRESETS[activePreset])
-            ? PRESETS[activePreset].description.title 
-            : 'Custom';
-
-        ui.stageName.textContent = `${presetName} • ${stages[idx].name}`;
-        ui.stageSub.textContent = `Stage ${idx + 1} of ${stages.length}`;
-        const progress = ((idx + 1) / stages.length) * 100;
-        ui.progressBar.style.width = `${progress}%`;
-    }
+function updateIntensityLabel(value) {
+    elements.intLabel.textContent = value;
 }
 
-export function updatePlayPauseButton() {
-    if (!state.isPlaying) {
-        ui.playIcon.className = 'play-icon';
-        ui.playPauseLabel.textContent = 'Play';
-    } else {
-        ui.playIcon.className = 'pause-icon';
-        ui.playPauseLabel.textContent = 'Pause';
-    }
+function updateMasterVolumeLabel(value) {
+    elements.volLabel.textContent = value;
 }
 
-export function toggleCheckmark(button, checkmark, isEnabled) {
+function toggleCheckmark(button, checkmark, isEnabled) {
     button.setAttribute('aria-checked', isEnabled);
     checkmark.classList.toggle('bg-accent', isEnabled);
     checkmark.classList.toggle('bg-black', !isEnabled);
 }
 
-export function updateToggle(stateKey) {
+function updateToggle(stateKey) {
     const config = toggleConfigs.find(c => c.stateKey === stateKey);
     if(config) {
-        toggleCheckmark(ui[config.optionId], ui[config.chkId], state[stateKey]);
+        toggleCheckmark(elements[config.optionId], elements[config.chkId], state[stateKey]);
     }
 }
 
-export function initUIState() {
+function updatePlayPauseButton() {
+    if (!state.isPlaying) {
+        elements.playIcon.className = 'play-icon';
+        elements.playPauseLabel.textContent = 'Play';
+    } else {
+        elements.playIcon.className = 'pause-icon';
+        elements.playPauseLabel.textContent = 'Pause';
+    }
+}
+
+function updateUIStage() {
+    elements.stageName.classList.remove('error-state');
+
+    if (state.audioEngineStatus === 'interrupted') {
+        elements.stageName.textContent = 'Audio Interrupted';
+        elements.stageName.classList.add('error-state');
+        elements.stageSub.textContent = 'Press Play to resume';
+        return; // Early exit for this specific state
+    }
+
+    const { currentStage, STAGES, activePreset } = state;
+
+    if (currentStage < 0 || !STAGES || STAGES.length === 0) {
+        elements.stageName.textContent = 'Idle • Ready';
+        elements.stageSub.textContent = 'Select a therapy to begin';
+    } else {
+        const presetName = (activePreset !== 'none' && PRESETS[activePreset])
+            ? PRESETS[activePreset].description.title
+            : 'Custom';
+        
+        const stage = STAGES[currentStage];
+
+        if (!stage) {
+            elements.stageName.textContent = 'Session Complete';
+            elements.stageSub.textContent = 'Press play to start a new session';
+        } else {
+            elements.stageName.textContent = `${presetName} • ${stage.name}`;
+            elements.stageSub.textContent = `Stage ${currentStage + 1} of ${STAGES.length}`;
+        }
+    }
+
+    if (state.isPlaying) {
+        // The rAF loop is responsible for the progress bar.
+        // It will be updated on the next animation frame.
+    } else {
+        // We are paused, stopped, or idle. Set a static progress value.
+        const totalDuration = state.sessionLengthMinutes * 60;
+
+        if (currentStage < 0 || totalDuration <= 0) {
+            // Session is idle or has been explicitly stopped and reset.
+            elements.progressBar.style.width = '0%';
+        } else {
+            // Session is paused or has just ended.
+            const progress = (state.sessionElapsedTime / totalDuration) * 100;
+            elements.progressBar.style.width = `${Math.min(100, progress)}%`;
+        }
+    }
+}
+
+// --- Primary Exported Functions ---
+
+export function init(controller) {
+    queryElements();
+
+    elements.playPauseBtn.addEventListener('click', controller.handlePlayPause.bind(controller));
+    elements.prevStageBtn.addEventListener('click', controller.goToPreviousStage.bind(controller));
+    elements.nextStageBtn.addEventListener('click', controller.goToNextStage.bind(controller));
+    elements.lengthSlider.addEventListener('input', controller.debounce(e => controller.handleLengthChange(e.target.value), 50));
+    elements.intensitySlider.addEventListener('input', controller.debounce((e) => controller.handleIntensityChange(e.target.value), 50));
+    elements.masterVolumeSlider.addEventListener('input', controller.debounce((e) => controller.handleMasterVolumeChange(e.target.value), 50));
+    
+    toggleConfigs.forEach(config => {
+        elements[config.optionId].addEventListener('click', controller.debounce(() => {
+            controller.handleToggle(config.stateKey, config.nodeKey);
+        }, 50));
+    });
+
+    elements.saveAudioBtn.addEventListener('click', () => showSaveModal());
+    elements.saveModalCloseBtn.addEventListener('click', () => hideSaveModal());
+    elements.cancelModalBtn.addEventListener('click', () => hideSaveModal());
+    elements.saveModalBackdrop.addEventListener('click', () => hideSaveModal());
+    elements.startRenderBtn.addEventListener('click', controller.startAudioRender.bind(controller));
+    elements.cancelRenderBtn.addEventListener('click', () => {
+        state.renderProcess.cancel = true;
+        updateRenderProgress(state.renderProcess.progress, 'Cancellation requested. Finishing render step...', '');
+    });
+
+    elements.openPresetDialogBtn.addEventListener('click', () => showPresetDialog());
+    elements.presetDialogCloseBtn.addEventListener('click', () => hidePresetDialog());
+    elements.presetDialogExitBtn.addEventListener('click', () => hidePresetDialog());
+    elements.presetDialogBackdrop.addEventListener('click', () => hidePresetDialog());
+    
+    // Pre-warm AudioContext on first interaction for reduced latency.
+    // This listener is added to all interactive elements and will only run once.
+    const interactiveElements = [
+        elements.playPauseBtn, elements.prevStageBtn, elements.nextStageBtn,
+        elements.lengthSlider, elements.intensitySlider, elements.masterVolumeSlider,
+        elements.saveAudioBtn, elements.openPresetDialogBtn, elements.installAppBtn,
+        elements.saveModalCloseBtn, elements.cancelModalBtn, elements.startRenderBtn, elements.cancelRenderBtn,
+        elements.presetDialogCloseBtn, elements.presetDialogExitBtn,
+        ...toggleConfigs.map(c => elements[c.optionId])
+    ].filter(Boolean); // Filter out any undefined elements that might not have been found
+
+    interactiveElements.forEach(el => {
+        el.addEventListener('pointerdown', controller.handleFirstInteraction.bind(controller), { once: true });
+    });
+
+    checkPWA();
+    populatePresetDialog(
+        controller.handlePresetCardClick.bind(controller),
+        controller.handleFirstInteraction.bind(controller)
+    );
+    syncUIWithState(); // Single call to initialize the UI from state.
+}
+
+
+export function syncUIWithState() {
+    // Sliders and labels
     updateLengthLabel(state.sessionLengthMinutes);
     updateIntensityLabel(state.effectsIntensity);
     updateMasterVolumeLabel(state.masterVolume);
-    ui.lengthSlider.value = state.sessionLengthMinutes;
-    ui.intensitySlider.value = state.effectsIntensity;
-    ui.masterVolumeSlider.value = state.masterVolume;
+    elements.lengthSlider.value = state.sessionLengthMinutes;
+    elements.intensitySlider.value = state.effectsIntensity;
+    elements.masterVolumeSlider.value = state.masterVolume;
+    
+    // Toggles
     toggleConfigs.forEach(config => {
         updateToggle(config.stateKey);
     });
-}
 
-export function updateLengthLabel(value) {
-    ui.lenLabel.textContent = value;
-}
+    // Play/Pause button
+    updatePlayPauseButton();
 
-export function updateIntensityLabel(value) {
-    ui.intLabel.textContent = value;
-}
-
-export function updateMasterVolumeLabel(value) {
-    ui.volLabel.textContent = value;
-}
-
-export function updatePresetUI(preset) {
-    const toggles = preset.toggles;
-    toggleConfigs.forEach(config => {
-       state[config.stateKey] = !!toggles[config.nodeKey];
-       updateToggle(config.stateKey);
-    });
-   
-    state.effectsIntensity = preset.intensity;
-    ui.intensitySlider.value = preset.intensity;
-    updateIntensityLabel(preset.intensity);
+    // Stage info panel
+    updateUIStage();
 }
 
 export function checkPWA() {
     if (window.location.protocol === 'file:') {
-        ui.installAppBtn.style.display = 'none';
+        elements.installAppBtn.style.display = 'none';
         const p = document.createElement('p');
         p.innerHTML = '<strong>Note:</strong> App installation is not available when running from a local file. Please use a web server (http or https).';
         p.style.color = 'var(--accent)';
-        ui.installInstructions.prepend(p);
+        elements.installInstructions.prepend(p);
     }
     if (window.matchMedia('(display-mode: standalone)').matches) {
-         ui.installAppBtn.style.display = 'none';
-         ui.installInstructions.style.display = 'none';
+         elements.installAppBtn.style.display = 'none';
+         elements.installInstructions.style.display = 'none';
     }
 }
 
-export function checkSupportedFormats() {
-    const selector = ui.formatSelector;
-    if (!selector || !('MediaRecorder' in window)) return;
-
-    const options = Array.from(selector.options);
-    options.forEach(option => {
-        const mimeType = option.value;
-        if (mimeType !== 'audio/wav' && !MediaRecorder.isTypeSupported(mimeType)) {
-            option.remove();
-        }
-    });
-}
-
-export function populatePresetDialog(cardClickHandler) {
-    const container = ui.presetCardContainer;
+export function populatePresetDialog(cardClickHandler, firstInteractionHandler) {
+    const container = elements.presetCardContainer;
     container.innerHTML = '';
     for (const [key, preset] of Object.entries(PRESETS)) {
         if (key === 'none') continue;
@@ -213,55 +249,101 @@ export function populatePresetDialog(cardClickHandler) {
         `;
 
         card.addEventListener('click', () => cardClickHandler(key));
+        if (firstInteractionHandler) {
+            card.addEventListener('pointerdown', firstInteractionHandler, { once: true });
+        }
         container.appendChild(card);
     }
 }
 
 // --- Modal Functions ---
 
-export function updateFormatInfo() {
-    const selectedOption = ui.formatSelector.options[ui.formatSelector.selectedIndex];
-    const bitrate = selectedOption.dataset.bitrate;
-
-    if (bitrate) {
-        const kbps = parseInt(bitrate, 10) / 1000;
-        ui.formatInfo.textContent = `${kbps} kbps bitrate. High-quality compressed format for smaller files.`;
-    } else {
-        ui.formatInfo.textContent = 'Uncompressed, lossless format. Largest file size.';
-    }
-}
-
 export function showSaveModal() {
-    ui.saveModal.classList.remove('hidden');
-    ui.saveModalBackdrop.classList.remove('hidden');
-    updateFormatInfo();
+    elements.saveModal.classList.remove('hidden');
+    elements.saveModalBackdrop.classList.remove('hidden');
     setRenderMode(false); // Reset to settings view
     updateRenderProgress(0, 'Ready to export.', '');
 }
 
 export function hideSaveModal() {
     if (state.isRendering) return; // Prevent closing while rendering
-    ui.saveModal.classList.add('hidden');
-    ui.saveModalBackdrop.classList.add('hidden');
+    elements.saveModal.classList.add('hidden');
+    elements.saveModalBackdrop.classList.add('hidden');
 }
 
 export function showPresetDialog() {
-    ui.presetDialog.classList.remove('hidden');
-    ui.presetDialogBackdrop.classList.remove('hidden');
+    elements.presetDialog.classList.remove('hidden');
+    elements.presetDialogBackdrop.classList.remove('hidden');
 }
 
 export function hidePresetDialog() {
-    ui.presetDialog.classList.add('hidden');
-    ui.presetDialogBackdrop.classList.add('hidden');
+    elements.presetDialog.classList.add('hidden');
+    elements.presetDialogBackdrop.classList.add('hidden');
 }
 
 export function setRenderMode(isRendering) {
-    ui.saveSettingsView.classList.toggle('hidden', isRendering);
-    ui.saveProgressView.classList.toggle('hidden', !isRendering);
+    elements.saveSettingsView.classList.toggle('hidden', isRendering);
+    elements.saveProgressView.classList.toggle('hidden', !isRendering);
 }
 
 export function updateRenderProgress(progress, status, timeText = '') {
-    ui.renderProgressBar.style.width = `${Math.min(100, progress)}%`;
-    ui.progressStatusText.textContent = status;
-    ui.progressTimeText.textContent = timeText;
+    elements.renderProgressBar.style.width = `${Math.min(100, progress)}%`;
+    elements.progressStatusText.textContent = status;
+    elements.progressTimeText.textContent = timeText;
+}
+
+export function showErrorState(message) {
+    elements.stageName.textContent = 'Error';
+    elements.stageName.classList.add('error-state');
+    elements.stageSub.textContent = message;
+    elements.progressBar.style.width = '0%';
+}
+
+export function disableToggle(optionId) {
+    const button = elements[optionId];
+    if (button) {
+        button.disabled = true;
+        button.classList.add('toggle-button-disabled');
+        button.title = 'This sound effect failed to load and has been disabled for this session.';
+    }
+}
+
+// This function is still needed for a specific error case, so it remains exported.
+export function disableWorkletFeatures() {
+    // This function can be implemented to disable UI elements that depend on the worklet.
+    // For example:
+    // const isoOption = document.getElementById('isoOption');
+    // if (isoOption) {
+    //     isoOption.disabled = true;
+    //     isoOption.style.opacity = '0.5';
+    //     isoOption.title = 'This feature is unavailable because the AudioWorklet could not be loaded.';
+    // }
+}
+
+export function startProgressAnimationLoop() {
+    if (progressAnimationId) return;
+
+    const loop = () => {
+        if (!state.isPlaying) {
+            progressAnimationId = null;
+            return;
+        }
+
+        const totalDuration = state.sessionLengthMinutes * 60;
+        const progress = totalDuration > 0 ? (state.sessionElapsedTime / totalDuration) * 100 : 0;
+        
+        if (elements.progressBar) {
+            elements.progressBar.style.width = `${Math.min(100, progress)}%`;
+        }
+
+        progressAnimationId = requestAnimationFrame(loop);
+    };
+    progressAnimationId = requestAnimationFrame(loop);
+}
+
+export function stopProgressAnimationLoop() {
+    if (progressAnimationId) {
+        cancelAnimationFrame(progressAnimationId);
+    }
+    progressAnimationId = null;
 }
